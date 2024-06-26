@@ -59,7 +59,7 @@ def create_app(config_path, session_file, test_mode):
             access_key = data['access_key']
         except ValueError:
             print("Invalid data format received")
-            abort(400)
+            abort(503)
         print(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
 
         client_ip = request.remote_addr
