@@ -53,9 +53,10 @@ def create_app(config_path, session_file, test_mode):
     @app.route('/', methods=['POST'])
     def handle_request():  # This function is used by Flask to handle POST requests
         print("Received POST request")
-        data = request.data.decode()
+        data = request.form
         try:
-            app_name, access_key = data.split('=')
+            app_name = data['app']
+            access_key = data['access_key']
         except ValueError:
             print("Invalid data format received")
             abort(400)
