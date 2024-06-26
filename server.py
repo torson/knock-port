@@ -49,7 +49,7 @@ def create_app(config_path, session_file, test_mode):
     session_manager.start()
 
     @app.route('/', methods=['POST'])
-    def handle_request():
+    def handle_request():  # This function is used by Flask to handle POST requests
         print("Received POST request")
         data = request.data.decode()
         app_name, access_key = data.split('=')
