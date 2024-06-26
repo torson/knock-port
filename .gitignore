@@ -1,3 +1,4 @@
 .aider*
 *.output
+*.log
 session_cache.json
