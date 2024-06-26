@@ -76,7 +76,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Server Application")
     parser.add_argument('-c', '--config', type=str, default='config.yaml', help='Path to configuration file')
     parser.add_argument('-t', '--test', action='store_true', help='Enable test mode to mock iptables commands')
+    parser.add_argument('-p', '--port', type=int, default=8080, help='Port to run the server on')
     args = parser.parse_args()
 
     app = create_app(args.config, 'session_cache.json', args.test)
-    app.run(port=8080)
+    app.run(port=args.port)
