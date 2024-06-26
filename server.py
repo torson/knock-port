@@ -25,8 +25,6 @@ def manage_sessions(session_file, sessions, lock, test_mode):
             for session in expired_sessions:
                 sessions.remove(session)
                 iptables_command = session['iptables_command'].replace('-A', '-D')
-                # Since 'config' and 'app_name' are not defined in this scope, we need to remove or correct this line
-                iptables_command = iptables_command.replace('-p tcp', '-p tcp')  # Placeholder replacement to avoid syntax error
                 if test_mode:
                     subprocess.run(["echo", "Mock command: ", *iptables_command.split()], check=True)
                 else:
@@ -69,15 +67,14 @@ def create_app(config_path, session_file, test_mode):
             port = config[app_name]['port']
             destination = config[app_name]['destination']
             duration = config[app_name]['duration']
-            expires_at = time.time() + duration
+            protocol = config[app_name]['protocol']
             if destination == "local":
-                protocol = config[app_name]['protocol']
                 iptables_command = f"iptables -A INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
             else:
-                ip, port = destination.split(':')
-                protocol = config[app_name]['protocol']
-                iptables_command = f"iptables -A FORWARD -p {protocol} -s {client_ip} -d {ip} --dport {port} -j ACCEPT"
+                destination_ip, destination_port = destination.split(':')
+                iptables_command = f"iptables -A FORWARD -p {protocol} -s {client_ip} -d {destination_ip} --dport {destination_port} -j ACCEPT"
             session_exists = False
+            expires_at = time.time() + duration
             for session in sessions:
                 if session['iptables_command'] == iptables_command:
                     session['expires_at'] = expires_at
