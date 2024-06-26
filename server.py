@@ -22,9 +22,9 @@ def manage_sessions(session_file, sessions, lock, test_mode):
             for session in expired_sessions:
                 sessions.remove(session)
                 if test_mode:
-                    subprocess.run(["echo", f"iptables -D {session['iptables_command'].replace('-A', '-D')}"], check=True)
+                    subprocess.run(["echo", session['iptables_command'].replace('-A', '-D')], check=True)
                 else:
-                    subprocess.run(["iptables", "-D", session['iptables_command'].replace('-A', '-D')], check=True)
+                    subprocess.run([session['iptables_command'].replace('-A', '-D')], check=True)
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
@@ -75,6 +75,6 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config', type=str, default='config.yaml', help='Path to configuration file')
     parser.add_argument('-t', '--test', action='store_true', help='Enable test mode to mock iptables commands')
     args = parser.parse_args()
-    
+
     app = create_app(args.config, 'session_cache.json', args.test)
     app.run(port=8080)
