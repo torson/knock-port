@@ -5,3 +5,10 @@ openvpn:
   destination: local  # 'local' or IP (listening on the same port)
   protocol: tcp
   duration: 10  # Duration in seconds
+
+mysql:
+  port: 3306
+  access_key: secret123
+  destination: local  # 'local' or IP (listening on the same port)
+  protocol: tcp
+  duration: 10  # Duration in seconds
