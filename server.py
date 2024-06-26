@@ -22,7 +22,7 @@ def manage_sessions(session_file, sessions, lock, test_mode):
             for session in expired_sessions:
                 sessions.remove(session)
                 if test_mode:
-                    print(f"echo iptables -D {session['iptables_command']}")
+                    subprocess.run(["echo", f"iptables -D {session['iptables_command']}"], check=True)
                 else:
                     subprocess.run(["iptables", "-D", session['iptables_command']], check=True)
             with open(session_file, 'w') as f:
@@ -61,7 +61,7 @@ def create_app(config_path, session_file, test_mode):
                 ip, port = destination.split(':')
                 iptables_command = f"iptables -A FORWARD -s {client_ip} -d {ip} --dport {port} -j ACCEPT"
             if test_mode:
-                iptables_command = "echo " + iptables_command
+                subprocess.run(["echo", iptables_command], check=True)
             else:
                 subprocess.run(["iptables", "-A", iptables_command], check=True)
             print(iptables_command)
