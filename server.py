@@ -26,7 +26,7 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                 sessions.remove(session)
                 iptables_command = session['iptables_command'].replace('-A', '-D')
                 if test_mode:
-                    subprocess.run(["echo", "Mock command: ", iptables_command.split()], check=True)
+                    subprocess.run(["echo", "Mock command: ", *iptables_command.split()], check=True)
                 else:
                     print(f"Executing command: {iptables_command}")
                     subprocess.run([iptables_command.split()], check=True)
@@ -74,7 +74,7 @@ def create_app(config_path, session_file, test_mode):
                 ip, port = destination.split(':')
                 iptables_command = f"iptables -A FORWARD -p tcp -s {client_ip} -d {ip} --dport {port} -j ACCEPT"
             if test_mode:
-                subprocess.run(["echo", "Mock command: ", iptables_command.split()], check=True)
+                subprocess.run(["echo", "Mock command: ", *iptables_command.split()], check=True)
             else:
                 print(f"Executing command: {iptables_command}")
                 subprocess.run(iptables_command.split(), check=True)
