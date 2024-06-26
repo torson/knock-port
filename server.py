@@ -71,8 +71,7 @@ def create_app(config_path, session_file, test_mode):
             if destination == "local":
                 iptables_command = f"iptables -A INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
             else:
-                destination_ip, destination_port = destination.split(':')
-                iptables_command = f"iptables -A FORWARD -p {protocol} -s {client_ip} -d {destination_ip} --dport {destination_port} -j ACCEPT"
+                iptables_command = f"iptables -A FORWARD -p {protocol} -s {client_ip} -d {destination} --dport {port} -j ACCEPT"
             session_exists = False
             expires_at = time.time() + duration
             for session in sessions:
