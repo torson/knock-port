@@ -73,11 +73,12 @@ def create_app(config_path, session_file, test_mode):
             else:
                 ip, port = destination.split(':')
                 iptables_command = f"iptables -A FORWARD -p tcp -s {client_ip} -d {ip} --dport {port} -j ACCEPT"
-            if test_mode:
-                subprocess.run(["echo", "Mock command: ", *iptables_command.split()], check=True)
-            else:
-                print(f"Executing command: {iptables_command}")
-                subprocess.run(iptables_command.split(), check=True)
+            if not session_exists:
+                if test_mode:
+                    subprocess.run(["echo", "Mock command: ", *iptables_command.split()], check=True)
+                else:
+                    print(f"Executing command: {iptables_command}")
+                    subprocess.run(iptables_command.split(), check=True)
             with lock:
                 session_exists = False
                 for session in sessions:
