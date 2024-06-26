@@ -31,19 +31,7 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                     print(f"Executing command: {iptables_command}")
                     subprocess.run(iptables_command.split(), check=True)
                 if 'dnat_command' in session:
-                    dnat_command = session['dnat_command'].replace('-A', '-D')
-                    if test_mode:
-                        subprocess.run(["echo", "Mock command: ", *dnat_command.split()], check=True)
-                    else:
-                        print(f"Executing command: {dnat_command}")
-                        subprocess.run(dnat_command.split(), check=True)
                 if 'snat_command' in session:
-                    snat_command = session['snat_command'].replace('-A', '-D')
-                    if test_mode:
-                        subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
-                    else:
-                        print(f"Executing command: {snat_command}")
-                        subprocess.run(snat_command.split(), check=True)
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
@@ -109,7 +97,7 @@ def create_app(config_path, session_file, test_mode):
                     print(f"Executing command: {snat_command}")
                     subprocess.run(snat_command.split(), check=True)
                 with lock:
-                    sessions.append({'iptables_command': iptables_command, 'dnat_command': dnat_command, 'snat_command': snat_command, 'expires_at': expires_at})
+                    sessions.append({'iptables_command': iptables_command, 'expires_at': expires_at})
         else:
             print(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
         abort(503)
@@ -123,24 +111,39 @@ def cleanup_iptables(sessions, test_mode):
         else:
             print(f"Executing command: {iptables_command}")
             subprocess.run(iptables_command.split(), check=True)
-        if 'dnat_command' in session:
-            dnat_command = session['dnat_command'].replace('-A', '-D')
+
+def apply_dnat_snat_rules(config, test_mode):
+    for app_name, app_config in config.items():
+        if app_config['destination'] != "local":
+            dnat_command = f"iptables -t nat -A PREROUTING -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {app_config['destination']}:{app_config['port']}"
+            snat_command = f"iptables -t nat -A POSTROUTING -p {app_config['protocol']} --dport {app_config['port']} -j MASQUERADE"
             if test_mode:
                 subprocess.run(["echo", "Mock command: ", *dnat_command.split()], check=True)
+                subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
             else:
                 print(f"Executing command: {dnat_command}")
                 subprocess.run(dnat_command.split(), check=True)
-        if 'snat_command' in session:
-            snat_command = session['snat_command'].replace('-A', '-D')
-            if test_mode:
-                subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
-            else:
                 print(f"Executing command: {snat_command}")
                 subprocess.run(snat_command.split(), check=True)
 
-def signal_handler(sig, frame, sessions, test_mode):
+def cleanup_dnat_snat_rules(config, test_mode):
+    for app_name, app_config in config.items():
+        if app_config['destination'] != "local":
+            dnat_command = f"iptables -t nat -D PREROUTING -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {app_config['destination']}:{app_config['port']}"
+            snat_command = f"iptables -t nat -D POSTROUTING -p {app_config['protocol']} --dport {app_config['port']} -j MASQUERADE"
+            if test_mode:
+                subprocess.run(["echo", "Mock command: ", *dnat_command.split()], check=True)
+                subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
+            else:
+                print(f"Executing command: {dnat_command}")
+                subprocess.run(dnat_command.split(), check=True)
+                print(f"Executing command: {snat_command}")
+                subprocess.run(snat_command.split(), check=True)
+
+def signal_handler(sig, frame, sessions, config, test_mode):
     print("Server is shutting down...")
     cleanup_iptables(sessions, test_mode)
+    cleanup_dnat_snat_rules(config, test_mode)
     sys.exit(0)
 
 if __name__ == '__main__':
@@ -153,7 +156,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     app = create_app(args.config, 'session_cache.json', args.test)
+    apply_dnat_snat_rules(app.config['config'], args.test)
     print(f"Server is starting on port {args.port}...")
-    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], args.test))
-    signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], args.test))
+    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
+    signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
     app.run(port=args.port)
