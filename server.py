@@ -26,10 +26,10 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                 sessions.remove(session)
                 iptables_command = session['iptables_command'].replace('-A', '-D')
                 if test_mode:
-                    subprocess.run(["echo", "Mock command: ", iptables_command], check=True)
+                    subprocess.run(["echo", "Mock command: ", iptables_command.split()], check=True)
                 else:
                     print(f"Executing command: {iptables_command}")
-                    subprocess.run([iptables_command], check=True)
+                    subprocess.run([iptables_command.split()], check=True)
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
@@ -74,7 +74,7 @@ def create_app(config_path, session_file, test_mode):
                 ip, port = destination.split(':')
                 iptables_command = f"iptables -A FORWARD -p tcp -s {client_ip} -d {ip} --dport {port} -j ACCEPT"
             if test_mode:
-                subprocess.run(["echo", "Mock command: ", *iptables_command.split()], check=True)
+                subprocess.run(["echo", "Mock command: ", iptables_command.split()], check=True)
             else:
                 print(f"Executing command: {iptables_command}")
                 subprocess.run(iptables_command.split(), check=True)
@@ -96,7 +96,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Server Application")
     parser.add_argument('-c', '--config', type=str, default='config.yaml', help='Path to configuration file')
     parser.add_argument('-t', '--test', action='store_true', help='Enable test mode to mock iptables commands')
-    parser.add_argument('-p', '--port', type=int, default=8080, help='Port to run the server on')
+    parser.add_argument('-p', '--port', type=int, default=8080, help='Port to run the server on (default: 8080)')
     args = parser.parse_args()
 
     app = create_app(args.config, 'session_cache.json', args.test)
