@@ -56,14 +56,14 @@ def create_app(config_path, session_file, test_mode):
             duration = config[app_name]['duration']
             expires_at = time.time() + duration
             if destination == "local":
-                iptables_command = f"iptables -A INPUT -s {client_ip} -p tcp --dport {port} -j ACCEPT"
+                iptables_command = f"iptables -A INPUT -p tcp -s {client_ip} --dport {port} -j ACCEPT"
             else:
                 ip, port = destination.split(':')
-                iptables_command = f"iptables -A FORWARD -s {client_ip} -d {ip} --dport {port} -j ACCEPT"
+                iptables_command = f"iptables -A FORWARD -p tcp -s {client_ip} -d {ip} --dport {port} -j ACCEPT"
             if test_mode:
                 subprocess.run(["echo", iptables_command], check=True)
             else:
-                subprocess.run(["iptables", "-A", iptables_command], check=True)
+                subprocess.run([iptables_command], check=True)
             print(iptables_command)
             with lock:
                 sessions.append({'iptables_command': iptables_command, 'expires_at': expires_at})
