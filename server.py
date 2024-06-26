@@ -30,20 +30,6 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                 else:
                     print(f"Executing command: {iptables_command}")
                     subprocess.run(iptables_command.split(), check=True)
-                if 'dnat_command' in session:
-                    dnat_command = session['dnat_command'].replace('-A', '-D')
-                    if test_mode:
-                        subprocess.run(["echo", "Mock command: ", *dnat_command.split()], check=True)
-                    else:
-                        print(f"Executing command: {dnat_command}")
-                        subprocess.run(dnat_command.split(), check=True)
-                if 'snat_command' in session:
-                    snat_command = session['snat_command'].replace('-A', '-D')
-                    if test_mode:
-                        subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
-                    else:
-                        print(f"Executing command: {snat_command}")
-                        subprocess.run(snat_command.split(), check=True)
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
@@ -86,8 +72,6 @@ def create_app(config_path, session_file, test_mode):
                 iptables_command = f"iptables -A INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
             else:
                 iptables_command = f"iptables -A FORWARD -p {protocol} -s {client_ip} -d {destination} --dport {port} -j ACCEPT"
-                dnat_command = f"iptables -t nat -A PREROUTING -p {protocol} -d {client_ip} --dport {port} -j DNAT --to-destination {destination}:{port}"
-                snat_command = f"iptables -t nat -A POSTROUTING -p {protocol} -d {destination} --dport {port} -j SNAT --to-source {client_ip}"
             session_exists = False
             expires_at = time.time() + duration
             for session in sessions:
@@ -99,15 +83,9 @@ def create_app(config_path, session_file, test_mode):
             if not session_exists:
                 if test_mode:
                     subprocess.run(["echo", "Mock command: ", *iptables_command.split()], check=True)
-                    subprocess.run(["echo", "Mock command: ", *dnat_command.split()], check=True)
-                    subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
                 else:
                     print(f"Executing command: {iptables_command}")
                     subprocess.run(iptables_command.split(), check=True)
-                    print(f"Executing command: {dnat_command}")
-                    subprocess.run(dnat_command.split(), check=True)
-                    print(f"Executing command: {snat_command}")
-                    subprocess.run(snat_command.split(), check=True)
                 with lock:
                     sessions.append({'iptables_command': iptables_command, 'expires_at': expires_at})
         else:
