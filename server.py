@@ -19,6 +19,8 @@ def manage_sessions(session_file, sessions, lock, test_mode):
         time.sleep(5)
         current_time = time.time()
         with lock:
+            if sessions is None:
+                sessions = []
             expired_sessions = [s for s in sessions if current_time > s['expires_at']]
             for session in expired_sessions:
                 sessions.remove(session)
