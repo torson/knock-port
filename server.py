@@ -22,11 +22,12 @@ def manage_sessions(session_file, sessions, lock, test_mode):
             expired_sessions = [s for s in sessions if current_time > s['expires_at']]
             for session in expired_sessions:
                 sessions.remove(session)
-                command = session['iptables_command'].replace('-A', '-D')
+                iptables_command = session['iptables_command'].replace('-A', '-D')
                 if test_mode:
-                    subprocess.run(["echo", command], check=True)
+                    subprocess.run(["echo", "Mock command: ", iptables_command], check=True)
                 else:
-                    subprocess.run([command], check=True)
+                    print(f"Executing command: {iptables_command}")
+                    subprocess.run([iptables_command], check=True)
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
@@ -49,8 +50,11 @@ def create_app(config_path, session_file, test_mode):
 
     @app.route('/', methods=['POST'])
     def handle_request():
+        print("Received POST request")
         data = request.data.decode()
         app_name, access_key = data.split('=')
+        print(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
+
         client_ip = request.remote_addr
         if app_name in config and config[app_name]['access_key'] == access_key:
             port = config[app_name]['port']
@@ -63,12 +67,14 @@ def create_app(config_path, session_file, test_mode):
                 ip, port = destination.split(':')
                 iptables_command = f"iptables -A FORWARD -p tcp -s {client_ip} -d {ip} --dport {port} -j ACCEPT"
             if test_mode:
-                subprocess.run(["echo", iptables_command], check=True)
+                subprocess.run(["echo", "Mock command: ", iptables_command], check=True)
             else:
+                print(f"Executing command: {iptables_command}")
                 subprocess.run([iptables_command], check=True)
-            print(iptables_command)
             with lock:
                 sessions.append({'iptables_command': iptables_command, 'expires_at': expires_at})
+        else:
+            print(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
         abort(503)
     return app
 
@@ -80,4 +86,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     app = create_app(args.config, 'session_cache.json', args.test)
+    print(f"Server is starting on port {args.port}...")
     app.run(port=args.port)
