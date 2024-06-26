@@ -31,7 +31,19 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                     print(f"Executing command: {iptables_command}")
                     subprocess.run(iptables_command.split(), check=True)
                 if 'dnat_command' in session:
+                    dnat_command = session['dnat_command'].replace('-A', '-D')
+                    if test_mode:
+                        subprocess.run(["echo", "Mock command: ", *dnat_command.split()], check=True)
+                    else:
+                        print(f"Executing command: {dnat_command}")
+                        subprocess.run(dnat_command.split(), check=True)
                 if 'snat_command' in session:
+                    snat_command = session['snat_command'].replace('-A', '-D')
+                    if test_mode:
+                        subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
+                    else:
+                        print(f"Executing command: {snat_command}")
+                        subprocess.run(snat_command.split(), check=True)
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
