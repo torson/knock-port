@@ -2,7 +2,7 @@
 # Server Application
 
 ## Description
-This server application listens for HTTP POST requests on port 8080. It checks if the POST request payload matches an app and access key in the configuration file. If there's a match, it opena a specified port for the app for a limited duration as specified in the configuration. The server manages sessions and automatically closes ports after the duration expires.
+This server application listens for HTTP POST requests on port 8080. It checks if the POST request payload matches an app and access key in the configuration file. If there's a match, it opens a specified port for the client IP for a limited duration as specified in the configuration. The server manages sessions and automatically closes the port for the client IP after the duration expires.
 
 ## Configuration
 The server uses a YAML configuration file to define app names, their corresponding ports, access keys, and the duration for which the port should remain open. Here's an example of the configuration format:
@@ -21,21 +21,13 @@ pip install -r requirements.txt
 ```
 
 ## Usage
-To run the server:
 ```
-python3 server.py -c config.yaml
-- `-c config.yaml` specifies the path to the configuration file. If omitted, `config.yaml` in the current directory is used by default.
-- `-t` enables test mode, where `iptables` commands are mocked.
+python3 server.py -h
 
 # Sample curl command to test the server with the sample configuration:
 curl -X POST -d 'app=openvpn&access_key=secret123' http://localhost:8080
 ```
 
-## Help
-To display help information about the command-line arguments:
-```
-python3 server.py -h
-```
 
 ## Testing
 To test the server, especially the session expiration feature:

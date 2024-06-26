@@ -9,7 +9,7 @@ def test_session_expiration():
     assert response.status_code == 503, "Expected status code 503"
     
     # Wait for the duration to expire
-    time.sleep(310)  # Assuming the duration is 300 seconds, wait a bit longer
+    time.sleep(15)
 
     # Check if the session has been removed
     with open('session_cache.json', 'r') as f:
