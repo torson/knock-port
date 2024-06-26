@@ -10,6 +10,7 @@ import subprocess
 app = Flask(__name__)
 
 def load_config(config_path):
+    print("Loading configuration...")
     with open(config_path, 'r') as config_file:
         return yaml.safe_load(config_file)
 
@@ -21,10 +22,11 @@ def manage_sessions(session_file, sessions, lock, test_mode):
             expired_sessions = [s for s in sessions if current_time > s['expires_at']]
             for session in expired_sessions:
                 sessions.remove(session)
+                command = session['iptables_command'].replace('-A', '-D')
                 if test_mode:
-                    subprocess.run(["echo", session['iptables_command'].replace('-A', '-D')], check=True)
+                    subprocess.run(["echo", command], check=True)
                 else:
-                    subprocess.run([session['iptables_command'].replace('-A', '-D')], check=True)
+                    subprocess.run([command], check=True)
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
