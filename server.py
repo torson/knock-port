@@ -25,11 +25,13 @@ def manage_sessions(session_file, sessions, lock, test_mode):
             for session in expired_sessions:
                 sessions.remove(session)
                 iptables_command = session['iptables_command'].replace('-A', '-D')
+                protocol = config[app_name]['protocol']
+                iptables_command = iptables_command.replace('-p tcp', f'-p {protocol}')
                 if test_mode:
                     subprocess.run(["echo", "Mock command: ", *iptables_command.split()], check=True)
                 else:
                     print(f"Executing command: {iptables_command}")
-                    subprocess.run([iptables_command.split()], check=True)
+                    subprocess.run(iptables_command.split(), check=True)
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
@@ -69,10 +71,12 @@ def create_app(config_path, session_file, test_mode):
             duration = config[app_name]['duration']
             expires_at = time.time() + duration
             if destination == "local":
-                iptables_command = f"iptables -A INPUT -p tcp -s {client_ip} --dport {port} -j ACCEPT"
+                protocol = config[app_name]['protocol']
+                iptables_command = f"iptables -A INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
             else:
                 ip, port = destination.split(':')
-                iptables_command = f"iptables -A FORWARD -p tcp -s {client_ip} -d {ip} --dport {port} -j ACCEPT"
+                protocol = config[app_name]['protocol']
+                iptables_command = f"iptables -A FORWARD -p {protocol} -s {client_ip} -d {ip} --dport {port} -j ACCEPT"
             session_exists = False
             for session in sessions:
                 if session['iptables_command'] == iptables_command:
