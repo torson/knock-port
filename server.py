@@ -22,9 +22,9 @@ def manage_sessions(session_file, sessions, lock, test_mode):
             for session in expired_sessions:
                 sessions.remove(session)
                 if test_mode:
-                    subprocess.run(["echo", f"iptables -D {session['iptables_command']}"], check=True)
+                    subprocess.run(["echo", f"iptables -D {session['iptables_command'].replace('-A', '-D')}"], check=True)
                 else:
-                    subprocess.run(["iptables", "-D", session['iptables_command']], check=True)
+                    subprocess.run(["iptables", "-D", session['iptables_command'].replace('-A', '-D')], check=True)
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
