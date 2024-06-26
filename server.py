@@ -95,7 +95,7 @@ def create_app(config_path, session_file, test_mode):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Server Application")
-    parser.add_argument('-c', '--config', type=str, default='config.yaml', help='Path to configuration file')
+    parser.add_argument('-c', '--config', type=str, default='config.yaml', help='Path to the configuration file. If omitted, `config.yaml` in the current directory is used by default')
     parser.add_argument('-t', '--test', action='store_true', help='Enable test mode to mock iptables commands')
     parser.add_argument('-p', '--port', type=int, default=8080, help='Port to run the server on (default: 8080)')
     args = parser.parse_args()
