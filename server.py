@@ -91,6 +91,8 @@ def create_app(config_path, session_file, test_mode):
         else:
             print(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
         abort(503)
+    app.config['config'] = config
+    app.config['sessions'] = sessions
     return app
 
 def cleanup_iptables(sessions, test_mode):
