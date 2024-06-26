@@ -1,1 +1,3 @@
 .aider*
+*.output
+session_cache.json
