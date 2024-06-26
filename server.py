@@ -78,6 +78,7 @@ def create_app(config_path, session_file, test_mode):
                 if session['iptables_command'] == iptables_command:
                     session['expires_at'] = expires_at
                     session_exists = True
+                    print("Session is duplicate, updating 'expires_at'")
                     break
             if not session_exists:
                 if test_mode:
@@ -85,14 +86,7 @@ def create_app(config_path, session_file, test_mode):
                 else:
                     print(f"Executing command: {iptables_command}")
                     subprocess.run(iptables_command.split(), check=True)
-            with lock:
-                session_exists = False
-                for session in sessions:
-                    if session['iptables_command'] == iptables_command:
-                        session['expires_at'] = expires_at
-                        session_exists = True
-                        break
-                if not session_exists:
+                with lock:
                     sessions.append({'iptables_command': iptables_command, 'expires_at': expires_at})
         else:
             print(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
