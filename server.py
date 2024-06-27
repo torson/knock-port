@@ -145,7 +145,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config', type=str, default='config.yaml', help='Path to the configuration file. If omitted, `config.yaml` in the current directory is used by default')
     parser.add_argument('-t', '--test', action='store_true', help='Enable test mode to mock iptables commands')
     parser.add_argument('-p', '--port', type=int, default=8080, help='Port to run the server on (default: 8080)')
-    parser.add_argument('--cert', type=str, help='Path to the SSL certificate file')
+    parser.add_argument('--cert', type=str, help='Path to the SSL certificate file. This can be server certificate alone, or a bundle of (1) server, (2) intermediary and (3) root CA certificate, in this order, like TLS expects it.')
     parser.add_argument('--key', type=str, help='Path to the SSL key file')
     args = parser.parse_args()
 
