@@ -145,6 +145,8 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config', type=str, default='config.yaml', help='Path to the configuration file. If omitted, `config.yaml` in the current directory is used by default')
     parser.add_argument('-t', '--test', action='store_true', help='Enable test mode to mock iptables commands')
     parser.add_argument('-p', '--port', type=int, default=8080, help='Port to run the server on (default: 8080)')
+    parser.add_argument('--cert', type=str, help='Path to the SSL certificate file')
+    parser.add_argument('--key', type=str, help='Path to the SSL key file')
     args = parser.parse_args()
 
     app = create_app(args.config, 'session_cache.json', args.test)
@@ -152,4 +154,7 @@ if __name__ == '__main__':
     print(f"Server is starting on port {args.port}...")
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
     signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
-    app.run(port=args.port)
+    if args.cert and args.key:
+        app.run(port=args.port, ssl_context=(args.cert, args.key))
+    else:
+        app.run(port=args.port)
