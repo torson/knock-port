@@ -108,7 +108,7 @@ def apply_dnat_snat_rules(config, test_mode):
     for app_name, app_config in config.items():
         if app_config['destination'] != "local":
             dnat_command = f"iptables -t nat -A PREROUTING -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {app_config['destination']}:{app_config['port']}"
-            snat_command = f"iptables -t nat -A POSTROUTING -p {app_config['protocol']} --dport {app_config['port']} -j MASQUERADE"
+            snat_command = f"iptables -t nat -A POSTROUTING -o {app_config['interface']} -p {app_config['protocol']} -s {app_config['destination']} --sport {app_config['port']} -j MASQUERADE"
             if test_mode:
                 subprocess.run(["echo", "Mock command: ", *dnat_command.split()], check=True)
                 subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
@@ -122,7 +122,7 @@ def cleanup_dnat_snat_rules(config, test_mode):
     for app_name, app_config in config.items():
         if app_config['destination'] != "local":
             dnat_command = f"iptables -t nat -D PREROUTING -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {app_config['destination']}:{app_config['port']}"
-            snat_command = f"iptables -t nat -D POSTROUTING -p {app_config['protocol']} --dport {app_config['port']} -j MASQUERADE"
+            snat_command = f"iptables -t nat -D POSTROUTING -o {app_config['interface']} -p {app_config['protocol']} -s {app_config['destination']} --sport {app_config['port']} -j MASQUERADE"
             if test_mode:
                 subprocess.run(["echo", "Mock command: ", *dnat_command.split()], check=True)
                 subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
