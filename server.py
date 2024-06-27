@@ -29,7 +29,11 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                     subprocess.run(["echo", "Mock command: ", *iptables_command.split()], check=True)
                 else:
                     print(f"Executing command: {iptables_command}")
-                    subprocess.run(iptables_command.split(), check=True)
+                    if args.routing_type == 'iptables':
+                        subprocess.run(iptables_command.split(), check=True)
+                    elif args.routing_type == 'nftables':
+                        nftables_command = iptables_command.replace('iptables', 'nft')
+                        subprocess.run(nftables_command.split(), check=True)
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
@@ -147,6 +151,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', type=int, default=8080, help='Port to run the server on (default: 8080)')
     parser.add_argument('--cert', type=str, help='Path to the SSL certificate file. This can be server certificate alone, or a bundle of (1) server, (2) intermediary and (3) root CA certificate, in this order, like TLS expects it.')
     parser.add_argument('--key', type=str, help='Path to the SSL key file')
+    parser.add_argument('--routing-type', type=str, default='iptables', choices=['iptables', 'nftables'], help='Type of routing to use (default: iptables)')
     args = parser.parse_args()
 
     app = create_app(args.config, 'session_cache.json', args.test)
