@@ -73,12 +73,6 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                                 command = f"{command_nft_list} | grep {comment} | grep 'handle'" + " | awk '{print $NF}'"
                                 print(f"Executing command: {command}")
                                 handle = bash('-c', command, _tty_out=True)
-                                # handle = (
-                                #     bash('-c', command_nft_list) |
-                                #     grep(comment) |
-                                #     grep("handle") |
-                                #     awk('{print $NF}')
-                                # )
                                 # Strip any extraneous whitespace from the handle
                                 handle = handle.strip()
                                 # Step 5: Use the handle to delete the rule, if a valid handle is found
@@ -90,25 +84,6 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                                     print("No valid handle found.")
                             except Exception as e:
                                 print("Error during operations:", e)
-
-                        # command = f"nft -a list table ip {table}"
-                        # if test_mode:
-                        #     subprocess.run(["echo", "Mock command: ", *command.split(), "...parsing"], check=True)
-                        #     command = f"nft delete rule ip {table} {chain} handle HANDLE_NUM"
-                        #     subprocess.run(["echo", "Mock command: ", *command.split()], check=True)
-                        # else:
-                        #     print(f"Executing command: {command}")
-                        #     result = subprocess.run(command.split(), shell=True, text=True, capture_output=True)
-                        #     if result.returncode != 0:
-                        #         print("Failed to execute command:", result.stderr)
-                        #     lines_with_comment = [
-                        #         line for line in result.stdout.split('\n')
-                        #         if comment in line and "handle" in line
-                        #     ]
-                        #     # Extract and return the last word (typically the handle) from each filtered line
-                        #     handles = [line.split()[-1] for line in lines_with_comment]
-                        #     for handle in handles:
-                        #         command = f"nft delete rule ip {table} {chain} handle {handle}"
                     else:
                         print(f"nftables : No match found for : {session['command']}")
             with open(session_file, 'w') as f:
