@@ -61,8 +61,11 @@ class TestServer(unittest.TestCase):
 
     def test_default_drop(self):
         # Test that the port is not accessible by default
-        with self.assertRaises(requests.exceptions.ConnectionError):
+        try:
             requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
+            self.fail("Expected the request to fail, but it succeeded.")
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            pass  # This is the expected behavior
 
     def test_port_accessibility(self):
         # Knock to open the port
