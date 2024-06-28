@@ -6,6 +6,7 @@ import time
 import unittest
 import docker
 import json
+import yaml
 from time import sleep
 
 class TestServer(unittest.TestCase):
@@ -43,10 +44,17 @@ class TestServer(unittest.TestCase):
             self.fail(f"Session not created after {max_retries} retries. Content: {sessions}")
 
     def test_session_expiration(self):
+        # Load the config file
+        with open('config.test.yaml', 'r') as config_file:
+            config = yaml.safe_load(config_file)
+        
+        # Get the duration from the config and add 5 seconds
+        sleep_duration = config['test_app']['duration'] + 5
+        
         response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'})
         self.assertEqual(response.status_code, 503)
         
-        time.sleep(15)
+        time.sleep(sleep_duration)
 
         exec_result = self.container.exec_run('cat session_cache.json')
         sessions = exec_result.output.decode('utf-8')
