@@ -13,7 +13,7 @@ class TestServer(unittest.TestCase):
         
         # Create nftables table and chain
         cls.container.exec_run('nft add table ip vyos_filter')
-        cls.container.exec_run('nft add chain ip vyos_filter NAME_IN-OpenVPN-KnockPort { type filter hook input priority filter; policy accept; }')
+        cls.container.exec_run("nft add chain ip vyos_filter NAME_IN-OpenVPN-KnockPort '{ type filter hook input priority filter; policy accept; }'")
         
         print("nftables table and chain created")
         print("Container logs:")

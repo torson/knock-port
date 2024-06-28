@@ -8,7 +8,7 @@ openvpn:
   interface: eth0
 
 test_app:
-  port: 8080
+  port: 8111
   access_key: test_secret
   destination: local
   protocol: tcp

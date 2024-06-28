@@ -52,6 +52,8 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                             print("Error during operations:", e)
                 elif args.routing_type == 'nftables':
                     delete_nftables_rule(session['command'], test_mode)
+                elif args.routing_type == 'vyos':
+                    delete_nftables_rule(session['command'], test_mode)
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
@@ -103,7 +105,9 @@ def create_app(config_path, session_file, test_mode):
                 if args.routing_type == 'iptables':
                     command = f"iptables -A INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
                 elif args.routing_type == 'nftables':
-                    command = f"nft add rule ip vyos_filter NAME_IN-OpenVPN-KnockPort {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-NAM-IN-OpenVPN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
+                    command = f"nft add rule ip {args.nftables_table} {args.nftables_chain} {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
+                elif args.routing_type == 'vyos':
+                    command = f"nft add rule ip vyos_filter NAME_IN-OpenVPN-KnockPort {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
             else:
                 if args.routing_type == 'iptables':
                     command = f"iptables -A FORWARD -p {protocol} -s {client_ip} -d {destination} --dport {port} -j ACCEPT"
@@ -220,7 +224,9 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', type=int, default=8080, help='Port to run the server on (default: 8080)')
     parser.add_argument('--cert', type=str, help='Path to the SSL certificate file. This can be server certificate alone, or a bundle of (1) server, (2) intermediary and (3) root CA certificate, in this order, like TLS expects it.')
     parser.add_argument('--key', type=str, help='Path to the SSL key file')
-    parser.add_argument('--routing-type', type=str, default='iptables', choices=['iptables', 'nftables'], help='Type of routing to use (default: iptables)')
+    parser.add_argument('--routing-type', type=str, default='iptables', choices=['iptables', 'nftables', 'vyos'], help='Type of routing to use (default: iptables)')
+    parser.add_argument('--nftables-table', type=str, help='add nftables rules to this table')
+    parser.add_argument('--nftables-chain', type=str, help='add nftables rules to this table chain')
     args = parser.parse_args()
 
     app = create_app(args.config, 'session_cache.json', args.test)
