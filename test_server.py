@@ -2,41 +2,55 @@
 import requests
 import time
 import json
+import subprocess
+import unittest
 
-def test_session_expiration():
-    # Send a request to open a port
-    response = requests.post('http://127.0.0.1:8080', data={'app': 'openvpn', 'access_key': 'secret123'})
-    assert response.status_code == 503, "Expected status code 503"
-    
-    # Wait for the duration to expire
-    time.sleep(15)
+class TestServer(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Start the server
+        cls.server_process = subprocess.Popen(["python", "server.py", "--test"])
+        time.sleep(2)  # Give the server time to start
 
-    # Check if the session has been removed
-    with open('session_cache.json', 'r') as f:
-        sessions = json.load(f)
-    assert len(sessions) == 0, "Session should be expired and removed from the cache"
-    print("Test for session expiration passed.")
+    @classmethod
+    def tearDownClass(cls):
+        # Stop the server
+        cls.server_process.terminate()
+        cls.server_process.wait()
 
-def test_invalid_access_key():
-    # Send a request with an invalid access key
-    response = requests.post('http://127.0.0.1:8080', data={'app': 'openvpn', 'access_key': 'invalidkey'})
-    assert response.status_code == 503, "Expected status code 503 for invalid access key"
-    print("Test for invalid access key passed.")
+    def test_session_creation(self):
+        response = requests.post('http://localhost:8080', data={'app': 'openvpn', 'access_key': 'secret123'})
+        self.assertEqual(response.status_code, 503)
+        
+        with open('session_cache.json', 'r') as f:
+            sessions = json.load(f)
+        self.assertEqual(len(sessions), 1, "Session should be created")
 
-def test_invalid_app_name():
-    # Send a request with an invalid app name
-    response = requests.post('http://127.0.0.1:8080', data={'app': 'invalidapp', 'access_key': 'secret123'})
-    assert response.status_code == 503, "Expected status code 503 for invalid app name"
-    print("Test for invalid app name passed.")
+    def test_session_expiration(self):
+        response = requests.post('http://localhost:8080', data={'app': 'openvpn', 'access_key': 'secret123'})
+        self.assertEqual(response.status_code, 503)
+        
+        time.sleep(15)
 
-def test_missing_data():
-    # Send a request with missing data
-    response = requests.post('http://127.0.0.1:8080', data={})
-    assert response.status_code == 400, "Expected status code 400 for missing data"
-    print("Test for missing data passed.")
+        with open('session_cache.json', 'r') as f:
+            sessions = json.load(f)
+        self.assertEqual(len(sessions), 0, "Session should be expired and removed from the cache")
+
+    def test_invalid_access_key(self):
+        response = requests.post('http://localhost:8080', data={'app': 'openvpn', 'access_key': 'invalidkey'})
+        self.assertEqual(response.status_code, 503)
+
+    def test_invalid_app_name(self):
+        response = requests.post('http://localhost:8080', data={'app': 'invalidapp', 'access_key': 'secret123'})
+        self.assertEqual(response.status_code, 503)
+
+    def test_missing_data(self):
+        response = requests.post('http://localhost:8080', data={})
+        self.assertEqual(response.status_code, 400)
+
+    def test_get_request(self):
+        response = requests.get('http://localhost:8080')
+        self.assertEqual(response.status_code, 404)
 
 if __name__ == "__main__":
-    test_session_expiration()
-    test_invalid_access_key()
-    test_invalid_app_name()
-    test_missing_data()
+    unittest.main()
