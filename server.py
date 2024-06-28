@@ -72,16 +72,19 @@ def create_app(config_path, session_file, test_mode):
     session_manager.daemon = True
     session_manager.start()
 
-    @app.route('/', methods=['POST'])
-    def handle_request():  # This function is used by Flask to handle POST requests
-        print("Received POST request")
-        data = request.form
-        try:
-            app_name = data['app']
-            access_key = data['access_key']
-        except ValueError:
-            print("Invalid data format received")
-            abort(503)
+    @app.route('/', methods=['GET', 'POST'])
+    def handle_request():
+        if request.method == 'GET':
+            abort(404)
+        elif request.method == 'POST':
+            print("Received POST request")
+            data = request.form
+            try:
+                app_name = data['app']
+                access_key = data['access_key']
+            except KeyError:
+                print("Invalid data format received")
+                abort(503)
         print(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
 
         client_ip = request.remote_addr
