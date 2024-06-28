@@ -43,7 +43,7 @@ log docker rm port-knock-server
 docker rm port-knock-server
 
 # Run the server in a Docker container using host network
-run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p 8080:8080 --name port-knock-server port-knock-server
+run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p 8080:8080 -p 9999:9999 --name port-knock-server port-knock-server
 
 ### installing requirements
 log "docker exec port-knock-server bash -c \
