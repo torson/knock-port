@@ -6,6 +6,7 @@ import time
 import unittest
 import docker
 import json
+from time import sleep
 
 class TestServer(unittest.TestCase):
     @classmethod
@@ -29,10 +30,17 @@ class TestServer(unittest.TestCase):
         response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'})
         self.assertEqual(response.status_code, 503)
         
-        # Check the session_cache.json file inside the container
-        exec_result = self.container.exec_run('cat session_cache.json')
-        sessions = exec_result.output.decode('utf-8')
-        self.assertIn('"command":', sessions, "Session should be created")
+        # Check the session_cache.json file inside the container with retries
+        max_retries = 5
+        retry_delay = 1  # seconds
+        for _ in range(max_retries):
+            exec_result = self.container.exec_run('cat session_cache.json')
+            sessions = exec_result.output.decode('utf-8')
+            if '"command":' in sessions:
+                break
+            time.sleep(retry_delay)
+        else:
+            self.fail(f"Session not created after {max_retries} retries. Content: {sessions}")
 
     def test_session_expiration(self):
         response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'})
