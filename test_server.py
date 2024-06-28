@@ -8,6 +8,9 @@ import docker
 import json
 import yaml
 from time import sleep
+import subprocess
+import threading
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 class TestServer(unittest.TestCase):
     @classmethod
@@ -19,12 +22,23 @@ class TestServer(unittest.TestCase):
         cls.container.exec_run('nft add table ip input_test')
         cls.container.exec_run("nft add chain ip input_test in-knock-port '{ type filter hook input priority filter; policy accept; }'")
         
-        print("nftables table and chain created")
+        # Add a default drop rule for the test_app port
+        with open('config.test.yaml', 'r') as config_file:
+            config = yaml.safe_load(config_file)
+        cls.test_app_port = config['test_app']['port']
+        cls.container.exec_run(f"nft add rule ip input_test in-knock-port tcp dport {cls.test_app_port} drop")
+        
+        # Start a simple HTTP server in the container
+        cls.container.exec_run(f"python -m http.server {cls.test_app_port} &")
+        
+        print("nftables table and chain created, default drop rule added, and HTTP server started")
         print("Container logs:")
         print(cls.container.logs().decode('utf-8'))
 
     @classmethod
     def tearDownClass(cls):
+        # Stop the HTTP server
+        cls.container.exec_run("pkill -f 'python -m http.server'")
         cls.client.close()
 
     def test_session_creation(self):
@@ -42,6 +56,37 @@ class TestServer(unittest.TestCase):
             time.sleep(retry_delay)
         else:
             self.fail(f"Session not created after {max_retries} retries. Content: {sessions}")
+        
+        # Test accessibility after knock
+        response = requests.get(f'http://localhost:{self.test_app_port}')
+        self.assertEqual(response.status_code, 200, "Port should be accessible after knock")
+
+    def test_default_drop(self):
+        # Test that the port is not accessible by default
+        with self.assertRaises(requests.exceptions.ConnectionError):
+            requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
+
+    def test_port_accessibility(self):
+        # Knock to open the port
+        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'})
+        self.assertEqual(response.status_code, 503)
+
+        # Wait for the rule to be applied
+        time.sleep(1)
+
+        # Test accessibility
+        response = requests.get(f'http://localhost:{self.test_app_port}')
+        self.assertEqual(response.status_code, 200, "Port should be accessible after knock")
+
+        # Wait for the rule to expire
+        with open('config.test.yaml', 'r') as config_file:
+            config = yaml.safe_load(config_file)
+        sleep_duration = config['test_app']['duration'] + 5
+        time.sleep(sleep_duration)
+
+        # Test that the port is no longer accessible
+        with self.assertRaises(requests.exceptions.ConnectionError):
+            requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
 
     def test_session_expiration(self):
         # Load the config file
