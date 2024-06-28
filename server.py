@@ -106,7 +106,11 @@ def create_app(config_path, session_file, test_mode):
                 if args.routing_type == 'iptables':
                     command = f"iptables -A INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
                 elif args.routing_type == 'nftables':
-                    command = f"nft add rule ip {args.nftables_table} {args.nftables_chain} {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
+                    if args.nftables_table and args.nftables_chain:
+                        command = f"nft add rule ip {args.nftables_table} {args.nftables_chain} {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
+                    else:
+                        log_err("Error: nftables_table and nftables_chain must be specified when using --routing-type nftables")
+                        abort(500)
                 elif args.routing_type == 'vyos':
                     command = f"nft add rule ip vyos_filter NAME_IN-OpenVPN-KnockPort {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
             else:

@@ -65,9 +65,9 @@ docker exec port-knock-server bash -c \
 
 ## testing --routing-type nftables
 log docker exec port-knock-server bash -c \
-    'python server.py -c config.test.yaml --routing-type nftables --port 8080'
+    'python server.py -c config.test.yaml --routing-type nftables --nftables-table vyos_filter --nftables-chain NAME_IN-test_app-KnockPort --port 8080'
 docker exec port-knock-server bash -c \
-    'python server.py -c config.test.yaml --routing-type nftables --port 8080 > run_docker_tests.server.nftables.log 2>&1 &'
+    'python server.py -c config.test.yaml --routing-type nftables --nftables-table vyos_filter --nftables-chain NAME_IN-test_app-KnockPort --port 8080 > run_docker_tests.server.nftables.log 2>&1 &'
 sleep 3
 
 run_command python test_server.py
