@@ -1,7 +1,7 @@
 #!/bin/bash
 
 log() {
-    echo -e "\n--> $(date) : $1"
+    echo -e "\n--> $(date) : $@"
 }
 
 run_command() {
@@ -43,10 +43,42 @@ run_command docker rm port-knock-server
 # Run the server in a Docker container using host network
 run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p 8080:8080 --name port-knock-server port-knock-server
 
+log "docker exec port-knock-server bash -c \
+    'pip install --no-cache-dir -r requirements.txt'"
+docker exec port-knock-server bash -c \
+    'pip install --no-cache-dir -r requirements.txt'
+
+## testing --routing-type iptables
+log docker exec port-knock-server bash -c \
+    'python server.py -c config.test.yaml --routing-type iptables --port 8080'
+docker exec port-knock-server bash -c \
+    'python server.py -c config.test.yaml --routing-type iptables --port 8080 > run_docker_tests.server.iptables.log 2>&1 &'
+sleep 3
+
+# Run the tests
+run_command python test_server.py
+
+run_command docker stop port-knock-server
+
+## testing --routing-type nftables
+log docker exec port-knock-server bash -c \
+    'python server.py -c config.test.yaml --routing-type nftables --port 8080'
+docker exec port-knock-server bash -c \
+    'python server.py -c config.test.yaml --routing-type nftables --port 8080 > run_docker_tests.server.nftables.log 2>&1 &'
+sleep 3
+
+run_command python test_server.py
+
+run_command docker stop port-knock-server
+
+# run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p 8080:8080 --name port-knock-server port-knock-server \
+#     python server.py -c config.test.yaml --routing-type nftables --nftables-table input_test --nftables-chain in-knock-port --port 8080
+
+
 exit
 
 # Wait for the server to start
-run_command sleep 10
+run_command sleep 3
 
 run_command pip install -r requirements.txt
 

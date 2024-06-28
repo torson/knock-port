@@ -15,7 +15,7 @@ class TestServer(unittest.TestCase):
         
         # Create nftables table and chain
         cls.container.exec_run('nft add table ip vyos_filter')
-        cls.container.exec_run("nft add chain ip vyos_filter NAME_IN-OpenVPN-KnockPort '{ type filter hook input priority filter; policy accept; }'")
+        cls.container.exec_run("nft add chain ip vyos_filter NAME_IN-test_app-KnockPort '{ type filter hook input priority filter; policy accept; }'")
         
         print("nftables table and chain created")
         print("Container logs:")
@@ -26,30 +26,30 @@ class TestServer(unittest.TestCase):
         cls.client.close()
 
     def test_session_creation(self):
-        response = requests.post('http://localhost:8080', data={'app': 'openvpn', 'access_key': 'secret123'})
+        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'})
         self.assertEqual(response.status_code, 503)
         
         # Check the session_cache.json file inside the container
-        exec_result = self.container.exec_run('cat /app/session_cache.json')
+        exec_result = self.container.exec_run('cat session_cache.json')
         sessions = exec_result.output.decode('utf-8')
         self.assertIn('"command":', sessions, "Session should be created")
 
     def test_session_expiration(self):
-        response = requests.post('http://localhost:8080', data={'app': 'openvpn', 'access_key': 'secret123'})
+        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'})
         self.assertEqual(response.status_code, 503)
         
         time.sleep(15)
 
-        exec_result = self.container.exec_run('cat /app/session_cache.json')
+        exec_result = self.container.exec_run('cat session_cache.json')
         sessions = exec_result.output.decode('utf-8')
         self.assertEqual(sessions.strip(), '[]', "Session should be expired and removed from the cache")
 
     def test_invalid_access_key(self):
-        response = requests.post('http://localhost:8080', data={'app': 'openvpn', 'access_key': 'invalidkey'})
+        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'invalidkey'})
         self.assertEqual(response.status_code, 503)
 
     def test_invalid_app_name(self):
-        response = requests.post('http://localhost:8080', data={'app': 'invalidapp', 'access_key': 'secret123'})
+        response = requests.post('http://localhost:8080', data={'app': 'invalidapp', 'access_key': 'test_secret'})
         self.assertEqual(response.status_code, 503)
 
     def test_missing_data(self):
