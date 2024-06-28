@@ -31,36 +31,12 @@ class TestServer(unittest.TestCase):
         # nftables
         cls.container.exec_run(f"nft add rule ip input_test in-knock-port tcp dport {cls.test_app_port} drop")
         
-        # Copy the start_http_server.sh script to the container
-        with open('start_http_server.sh', 'r') as script_file:
-            script_content = script_file.read()
-        cls.container.exec_run("bash -c 'cat > /tmp/start_http_server.sh'", input=script_content.encode())
-        cls.container.exec_run("chmod +x /tmp/start_http_server.sh")
-
-        # Start a simple HTTP server in the container using the script
-        cls.container.exec_run(f"/tmp/start_http_server.sh {cls.test_app_port}")
-        
-        # Wait for the HTTP server to start
-        time.sleep(2)
-
-        # Verify that the HTTP server is running
-        exit_code, output = cls.container.exec_run(f"cat /tmp/http_server.pid")
-        if exit_code != 0:
-            raise Exception("Failed to start HTTP server")
-        
-        cls.http_server_pid = output.decode().strip()
-        print(f"HTTP server started with PID: {cls.http_server_pid}")
-        
-        print("nftables table and chain created, default drop rule added, and HTTP server started")
+        print("nftables table and chain created, default drop rule added")
         print("Container logs:")
         print(cls.container.logs().decode('utf-8'))
 
     @classmethod
     def tearDownClass(cls):
-        # Stop the HTTP server
-        if hasattr(cls, 'http_server_pid'):
-            cls.container.exec_run(f"kill {cls.http_server_pid}")
-        cls.container.exec_run("rm /tmp/start_http_server.sh /tmp/http_server.pid")
         cls.client.close()
 
     def test_session_creation(self):

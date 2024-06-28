@@ -37,16 +37,14 @@ VERBOSE=true
 run_command docker build -t port-knock-server .
 
 # Stop and remove the Docker container
-log docker stop port-knock-server
-docker stop port-knock-server
-log docker rm port-knock-server
-docker rm port-knock-server
+run_command docker stop -t 1 port-knock-server
+run_command docker rm port-knock-server
 
 # Get the test_app port from config.test.yaml
 TEST_APP_PORT=$(grep port config.test.yaml | awk '{print $2}')
 
 # Run the server in a Docker container using host network
-run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p 8080:8080 -p ${TEST_APP_PORT}:${TEST_APP_PORT} --name port-knock-server port-knock-server
+run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p 8080:8080 -p ${TEST_APP_PORT}:${TEST_APP_PORT} --name port-knock-server port-knock-server python -m http.server ${TEST_APP_PORT}
 
 ### installing requirements
 log "docker exec port-knock-server bash -c \
@@ -86,5 +84,5 @@ docker exec port-knock-server bash -c \
     'killall python'
 
 # Stop and remove the Docker container
-run_command docker stop port-knock-server
+run_command docker stop -t 1 port-knock-server
 run_command docker rm port-knock-server

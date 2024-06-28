@@ -4,6 +4,6 @@ test_app:
   access_key: test_secret
   destination: local
   protocol: tcp
-  duration: 10
+  duration: 15
   interface: eth0
 
