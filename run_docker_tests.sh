@@ -7,11 +7,11 @@ docker build -t port-knock-server .
 docker stop port-knock-server
 docker rm port-knock-server
 
-# Run the server in a Docker container
-docker run -d -v $(pwd):/app --name port-knock-server -p 8080:8080 port-knock-server
+# Run the server in a Docker container using host network
+docker run -d --network host -v $(pwd):/app --name port-knock-server port-knock-server
 
 # Wait for the server to start
-sleep 5
+sleep 10
 
 pip install -r requirements.txt
 

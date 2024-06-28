@@ -74,7 +74,7 @@ def create_app(config_path, session_file, test_mode):
 
     @app.route('/', methods=['GET', 'POST'])
     def handle_request():
-        print(f"Received {request.method} request")
+        print(f"Received {request.method} request from {request.remote_addr}")
         if request.method == 'GET':
             print("Aborting GET request with 404")
             abort(404)
@@ -91,7 +91,8 @@ def create_app(config_path, session_file, test_mode):
                 abort(503)
         print(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
 
-        client_ip = request.remote_addr
+        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        print(f"Client IP: {client_ip}")
         if app_name in config and config[app_name]['access_key'] == access_key:
             port = config[app_name]['port']
             destination = config[app_name]['destination']

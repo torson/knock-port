@@ -16,9 +16,9 @@ RUN echo "install iptables and nftables" && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# COPY . .
+COPY . .
 
 EXPOSE 8080
 
 CMD pip install --no-cache-dir -r requirements.txt && \
-    python server.py --routing-type nftables --test
+    python server.py --routing-type nftables --test --port 8080
