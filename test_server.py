@@ -15,8 +15,8 @@ class TestServer(unittest.TestCase):
         cls.container = cls.client.containers.get('port-knock-server')
         
         # Create nftables table and chain
-        cls.container.exec_run('nft add table ip vyos_filter')
-        cls.container.exec_run("nft add chain ip vyos_filter NAME_IN-test_app-KnockPort '{ type filter hook input priority filter; policy accept; }'")
+        cls.container.exec_run('nft add table ip input_test')
+        cls.container.exec_run("nft add chain ip input_test in-knock-port '{ type filter hook input priority filter; policy accept; }'")
         
         print("nftables table and chain created")
         print("Container logs:")

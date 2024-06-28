@@ -43,12 +43,13 @@ run_command docker rm port-knock-server
 # Run the server in a Docker container using host network
 run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p 8080:8080 --name port-knock-server port-knock-server
 
+### installing requirements
 log "docker exec port-knock-server bash -c \
     'pip install --no-cache-dir -r requirements.txt'"
 docker exec port-knock-server bash -c \
     'pip install --no-cache-dir -r requirements.txt'
 
-## testing --routing-type iptables
+### testing --routing-type iptables
 log docker exec port-knock-server bash -c \
     'python server.py -c config.test.yaml --routing-type iptables --port 8080'
 docker exec port-knock-server bash -c \
@@ -63,33 +64,16 @@ log docker exec port-knock-server bash -c \
 docker exec port-knock-server bash -c \
     'killall python'
 
-## testing --routing-type nftables
+### testing --routing-type nftables
 log docker exec port-knock-server bash -c \
-    'python server.py -c config.test.yaml --routing-type nftables --nftables-table vyos_filter --nftables-chain NAME_IN-test_app-KnockPort --port 8080'
+    'python server.py -c config.test.yaml --routing-type nftables --nftables-table input_test --nftables-chain in-knock-port --port 8080'
 docker exec port-knock-server bash -c \
-    'python server.py -c config.test.yaml --routing-type nftables --nftables-table vyos_filter --nftables-chain NAME_IN-test_app-KnockPort --port 8080 > run_docker_tests.server.nftables.log 2>&1 &'
+    'python server.py -c config.test.yaml --routing-type nftables --nftables-table input_test --nftables-chain in-knock-port --port 8080 > run_docker_tests.server.nftables.log 2>&1 &'
 sleep 3
-
-run_command python test_server.py
-
-run_command docker stop port-knock-server
-
-# run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p 8080:8080 --name port-knock-server port-knock-server \
-#     python server.py -c config.test.yaml --routing-type nftables --nftables-table input_test --nftables-chain in-knock-port --port 8080
-
-
-exit
-
-# Wait for the server to start
-run_command sleep 3
-
-run_command pip install -r requirements.txt
 
 # Run the tests
 run_command python test_server.py
 
-# Print container logs for debugging
-run_command docker logs port-knock-server
 
 
 # Stop and remove the Docker container
