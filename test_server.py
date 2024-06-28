@@ -55,6 +55,21 @@ class TestServer(unittest.TestCase):
         response = requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
         self.assertEqual(response.status_code, 200, f"Port {self.test_app_port} should be accessible after knock")
 
+        # Wait for the session to expire
+        with open('config.test.yaml', 'r') as config_file:
+            config = yaml.safe_load(config_file)
+        sleep_duration = config['test_app']['duration'] + 5
+        time.sleep(sleep_duration)
+
+        # Check that the session has been removed
+        exec_result = self.container.exec_run('cat session_cache.json')
+        sessions = exec_result.output.decode('utf-8')
+        self.assertEqual(sessions.strip(), '[]', "Session should be expired and removed from the cache")
+
+        # Verify that the port is no longer accessible
+        with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+            requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
+
     def test_default_drop(self):
         # Test that the port is not accessible by default
         try:
