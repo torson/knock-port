@@ -37,8 +37,10 @@ VERBOSE=true
 run_command docker build -t port-knock-server .
 
 # Stop and remove the Docker container
-run_command docker stop port-knock-server
-run_command docker rm port-knock-server
+log docker stop port-knock-server
+docker stop port-knock-server
+log docker rm port-knock-server
+docker rm port-knock-server
 
 # Run the server in a Docker container using host network
 run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p 8080:8080 --name port-knock-server port-knock-server
@@ -74,7 +76,10 @@ sleep 3
 # Run the tests
 run_command python test_server.py
 
-
+log docker exec port-knock-server bash -c \
+    'killall python'
+docker exec port-knock-server bash -c \
+    'killall python'
 
 # Stop and remove the Docker container
 run_command docker stop port-knock-server
