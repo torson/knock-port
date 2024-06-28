@@ -220,7 +220,7 @@ if __name__ == '__main__':
 
     app = create_app(args.config, 'session_cache.json', args.test)
     apply_dnat_snat_rules(app.config['config'], args.test)
-    print(f"Server is starting on port {args.port}...")
+    print(f"Server is starting on 0.0.0.0:{args.port}...")
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
     signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
     if args.cert and args.key:

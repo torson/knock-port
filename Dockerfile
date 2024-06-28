@@ -20,4 +20,4 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["python", "server.py"]
+CMD ["python", "server.py", "--host", "0.0.0.0"]
