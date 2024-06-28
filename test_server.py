@@ -26,12 +26,8 @@ class TestServer(unittest.TestCase):
         with open('config.test.yaml', 'r') as config_file:
             config = yaml.safe_load(config_file)
         cls.test_app_port = config['test_app']['port']
-        # iptables: Set default policy to DROP for INPUT chain
-        cls.container.exec_run(f"iptables -A INPUT -p tcp --dport {cls.test_app_port} -j DROP")
-        # nftables: Set default policy to drop
-        cls.container.exec_run(f"nft add rule ip input_test in-knock-port tcp dport {cls.test_app_port} drop")
         
-        print("nftables table and chain created, default drop rule added")
+        print("nftables table and chain created")
         print("Container logs:")
         print(cls.container.logs().decode('utf-8'))
 
