@@ -28,14 +28,8 @@ class TestServer(unittest.TestCase):
         cls.test_app_port = config['test_app']['port']
         # iptables: Set default policy to DROP for INPUT chain
         cls.container.exec_run("iptables -P INPUT DROP")
-        # Allow established connections
-        cls.container.exec_run("iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT")
-        # Allow loopback
-        cls.container.exec_run("iptables -A INPUT -i lo -j ACCEPT")
         # nftables: Set default policy to drop
-        cls.container.exec_run("nft add rule ip input_test in-knock-port ct state established,related accept")
-        cls.container.exec_run("nft add rule ip input_test in-knock-port iif lo accept")
-        cls.container.exec_run("nft add rule ip input_test in-knock-port drop")
+        cls.container.exec_run(f"nft add rule ip input_test in-knock-port tcp dport {cls.test_app_port} drop")
         
         print("nftables table and chain created, default drop rule added")
         print("Container logs:")
