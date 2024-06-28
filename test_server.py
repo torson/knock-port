@@ -26,6 +26,9 @@ class TestServer(unittest.TestCase):
         with open('config.test.yaml', 'r') as config_file:
             config = yaml.safe_load(config_file)
         cls.test_app_port = config['test_app']['port']
+        # iptables
+        cls.container.exec_run(f"iptables -A INPUT -p tcp --dport {cls.test_app_port} -j DROP")
+        # nftables
         cls.container.exec_run(f"nft add rule ip input_test in-knock-port tcp dport {cls.test_app_port} drop")
         
         # Start a simple HTTP server in the container

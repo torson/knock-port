@@ -54,8 +54,6 @@ docker exec port-knock-server bash -c \
 ### testing --routing-type iptables
 # Add a default drop rule for the test_app port
 log docker exec port-knock-server bash -c \
-    'iptables -A INPUT -p tcp --dport $(grep port config.test.yaml | awk "{print \$2}") -j DROP'
-log docker exec port-knock-server bash -c \
     'python server.py -c config.test.yaml --routing-type iptables --port 8080'
 docker exec port-knock-server bash -c \
     'python server.py -c config.test.yaml --routing-type iptables --port 8080 > run_docker_tests.server.iptables.log 2>&1 &'
