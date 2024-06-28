@@ -2,6 +2,7 @@
 import argparse
 import yaml
 import time
+import sys
 from flask import Flask, request, abort
 from threading import Thread, Lock
 import json
@@ -19,14 +20,14 @@ pp = pprint.PrettyPrinter(indent=4)
 
 def log(text):
     message = "%s: %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), text)
-    print >>sys.stdout, message
+    print(message, end='', flush=True)
 
 def log_err(text):
     message = "%s: %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), text)
-    print >>sys.stderr, message
+    print(message, end='', file=sys.stderr, flush=True)
 
 def load_config(config_path):
-    print("Loading configuration...")
+    log("Loading configuration...")
     with open(config_path, 'r') as config_file:
         return yaml.safe_load(config_file)
 
@@ -43,9 +44,9 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                 if args.routing_type == 'iptables':
                     command = session['command'].replace('-A', '-D')
                     if test_mode:
-                        print(f"Mock command: {command}")
+                        log(f"Mock command: {command}")
                     else:
-                        print(f"Executing command: {command}")
+                        log(f"Executing command: {command}")
                         try:
                             output = bash('-c', command)
                         except Exception as e:
@@ -165,7 +166,7 @@ def delete_nftables_rule(command, test_mode):
                 else:
                     print("No valid handle found.")
             except Exception as e:
-                print("Error during operations:", e)
+                log_err(f"Error during operations: {e}")
     else:
         print(f"nftables : No match found with '{command_nft_list}' for : {command}")
 
@@ -231,7 +232,7 @@ if __name__ == '__main__':
 
     app = create_app(args.config, 'session_cache.json', args.test)
     apply_dnat_snat_rules(app.config['config'], args.test)
-    print(f"Server is starting on 0.0.0.0:{args.port}...")
+    log(f"Server is starting on 0.0.0.0:{args.port}...")
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
     signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
     if args.cert and args.key:
