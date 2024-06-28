@@ -48,9 +48,9 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                     else:
                         log(f"Executing command: {command}")
                         try:
-                            output = bash('-c', command)
+                            log(str(bash('-c', command)))
                         except Exception as e:
-                            print("Error during operations:", e)
+                            log_err("Error during operations:", e)
                 elif args.routing_type == 'nftables':
                     delete_nftables_rule(session['command'], test_mode)
                 elif args.routing_type == 'vyos':
@@ -63,13 +63,13 @@ def create_app(config_path, session_file, test_mode):
     sessions = []
     lock = Lock()
     if test_mode:
-        print("Running in test mode. Commands will be mocked.")
+        log("Running in test mode. Commands will be mocked.")
 
     try:
         with open(session_file, 'r') as f:
             sessions = json.load(f)
     except FileNotFoundError:
-        print("No existing session file found. Starting fresh.")
+        log_err("No existing session file found. Starting fresh.")
 
     session_manager = Thread(target=manage_sessions, args=(session_file, sessions, lock, test_mode))
     session_manager.daemon = True
@@ -157,24 +157,24 @@ def delete_nftables_rule(command, test_mode):
         command_nft_list = f"nft -a list table ip {table}"
         command_nft_delete = f"nft delete rule ip {table} {chain} handle"
         if test_mode:
-            print(f"Mock command: {command_nft_list} ... parsing")
-            print(f"Mock command: {command_nft_delete} HANDLE_NUM")
+            log(f"Mock command: {command_nft_list} ... parsing")
+            log(f"Mock command: {command_nft_delete} HANDLE_NUM")
         else:
             try:
                 command = f"{command_nft_list} | grep {comment} | grep 'handle'" + " | awk '{print $NF}'"
-                print(f"Executing command: {command}")
+                log(f"Executing command: {command}")
                 handle = bash('-c', command, _tty_out=True)
                 handle = handle.strip()
                 if handle:
-                    print(f"Executing command: {command_nft_delete} {handle}")
+                    log(f"Executing command: {command_nft_delete} {handle}")
                     output = bash('-c', f"{command_nft_delete} {handle}")
-                    print("Delete operation successful:", output)
+                    log(f"Delete operation successful: {output}")
                 else:
-                    print("No valid handle found.")
+                    log_err("No valid handle found.")
             except Exception as e:
                 log_err(f"Error during operations: {e}")
     else:
-        print(f"nftables : No match found with '{command_nft_list}' for : {command}")
+        log_err(f"nftables : No match found with '{command_nft_list}' for : {command}")
 
 def cleanup_iptables(sessions, test_mode):
     for session in sessions:
@@ -183,7 +183,7 @@ def cleanup_iptables(sessions, test_mode):
             if test_mode:
                 subprocess.run(["echo", "Mock command: ", *command.split()], check=True)
             else:
-                print(f"Executing command: {command}")
+                log(f"Executing command: {command}")
                 subprocess.run(command.split(), check=True)
         elif args.routing_type == 'nftables':
             delete_nftables_rule(session['command'], test_mode)
@@ -197,9 +197,9 @@ def apply_dnat_snat_rules(config, test_mode):
                 subprocess.run(["echo", "Mock command: ", *dnat_command.split()], check=True)
                 subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
             else:
-                print(f"Executing command: {dnat_command}")
+                log(f"Executing command: {dnat_command}")
                 subprocess.run(dnat_command.split(), check=True)
-                print(f"Executing command: {snat_command}")
+                log(f"Executing command: {snat_command}")
                 subprocess.run(snat_command.split(), check=True)
 
 def cleanup_dnat_snat_rules(config, test_mode):
@@ -211,9 +211,9 @@ def cleanup_dnat_snat_rules(config, test_mode):
                 subprocess.run(["echo", "Mock command: ", *dnat_command.split()], check=True)
                 subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
             else:
-                print(f"Executing command: {dnat_command}")
+                log(f"Executing command: {dnat_command}")
                 subprocess.run(dnat_command.split(), check=True)
-                print(f"Executing command: {snat_command}")
+                log(f"Executing command: {snat_command}")
                 subprocess.run(snat_command.split(), check=True)
 
 def signal_handler(sig, frame, sessions, config, test_mode):
