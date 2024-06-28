@@ -1,4 +1,6 @@
 
+#!/usr/bin/env python3
+
 import requests
 import time
 import unittest
@@ -18,10 +20,6 @@ class TestServer(unittest.TestCase):
         print("nftables table and chain created")
         print("Container logs:")
         print(cls.container.logs().decode('utf-8'))
-    @classmethod
-    def setUpClass(cls):
-        cls.client = docker.from_env()
-        cls.container = cls.client.containers.get('port-knock-server')
 
     @classmethod
     def tearDownClass(cls):
