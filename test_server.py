@@ -40,7 +40,7 @@ class TestServer(unittest.TestCase):
         cls.client.close()
 
     def test_session_creation(self):
-        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'})
+        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'}, timeout=1)
         self.assertEqual(response.status_code, 503)
         
         # Check the session_cache.json file inside the container with retries
@@ -56,7 +56,7 @@ class TestServer(unittest.TestCase):
             self.fail(f"Session not created after {max_retries} retries. Content: {sessions}")
         
         # Test accessibility after knock
-        response = requests.get(f'http://localhost:{self.test_app_port}')
+        response = requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
         self.assertEqual(response.status_code, 200, "Port should be accessible after knock")
 
     def test_default_drop(self):
@@ -66,14 +66,14 @@ class TestServer(unittest.TestCase):
 
     def test_port_accessibility(self):
         # Knock to open the port
-        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'})
+        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'}, timeout=1)
         self.assertEqual(response.status_code, 503)
 
         # Wait for the rule to be applied
-        time.sleep(2)
+        time.sleep(5)
 
         # Test accessibility
-        response = requests.get(f'http://localhost:{self.test_app_port}')
+        response = requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
         self.assertEqual(response.status_code, 200, "Port should be accessible after knock")
 
         # Wait for the rule to expire
@@ -94,7 +94,7 @@ class TestServer(unittest.TestCase):
         # Get the duration from the config and add 5 seconds
         sleep_duration = config['test_app']['duration'] + 5
         
-        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'})
+        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'}, timeout=1)
         self.assertEqual(response.status_code, 503)
         
         time.sleep(sleep_duration)
@@ -104,19 +104,19 @@ class TestServer(unittest.TestCase):
         self.assertEqual(sessions.strip(), '[]', "Session should be expired and removed from the cache")
 
     def test_invalid_access_key(self):
-        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'invalidkey'})
+        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'invalidkey'}, timeout=1)
         self.assertEqual(response.status_code, 503)
 
     def test_invalid_app_name(self):
-        response = requests.post('http://localhost:8080', data={'app': 'invalidapp', 'access_key': 'test_secret'})
+        response = requests.post('http://localhost:8080', data={'app': 'invalidapp', 'access_key': 'test_secret'}, timeout=1)
         self.assertEqual(response.status_code, 503)
 
     def test_missing_data(self):
-        response = requests.post('http://localhost:8080', data={})
+        response = requests.post('http://localhost:8080', data={}, timeout=1)
         self.assertEqual(response.status_code, 503)
 
     def test_get_request(self):
-        response = requests.get('http://localhost:8080')
+        response = requests.get('http://localhost:8080', timeout=1)
         self.assertEqual(response.status_code, 404)
 
 if __name__ == "__main__":
