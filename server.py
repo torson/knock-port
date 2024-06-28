@@ -51,41 +51,7 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                         except Exception as e:
                             print("Error during operations:", e)
                 elif args.routing_type == 'nftables':
-                    # with nftables you can't just replace 'add' with 'del' like it's done with iptables, it's much more complicated , you need to list all the rules of a table, find the one to delete, take the handle number and then delete that handle. Insane.
-                    # nft delete rule ip vyos_filter NAME_IN-OpenVPN-KnockPort handle $(nft -a list table ip vyos_filter | grep "ipv4-NAM-IN-OpenVPN-KnockPort-tmp-127.0.0.1" | grep "handle" | awk '{print $NF}')
-                    # Regex pattern to capture the 5th word, 6th word, and the last quoted word
-                    command = session['command']
-                    pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+).*comment\s\'([^\']+)\''
-                    match = re.search(pattern, command)
-                    if match:
-                        table = match.group(1)
-                        chain = match.group(2)
-                        comment = match.group(3)
-                        command_nft_list = f"nft -a list table ip {table}"
-                        command_nft_delete = f"nft delete rule ip {table} {chain} handle"
-                        if test_mode:
-                            print(f"Mock command: {command_nft_list} ... parsing")
-                            print(f"Mock command: {command_nft_delete} HANDLE_NUM")
-                        else:
-                            # Step 1: Execute nft list command
-                            # Step 2 to 4: Pipe through grep twice and awk to extract the handle
-                            try:
-                                command = f"{command_nft_list} | grep {comment} | grep 'handle'" + " | awk '{print $NF}'"
-                                print(f"Executing command: {command}")
-                                handle = bash('-c', command, _tty_out=True)
-                                # Strip any extraneous whitespace from the handle
-                                handle = handle.strip()
-                                # Step 5: Use the handle to delete the rule, if a valid handle is found
-                                if handle:
-                                    print(f"Executing command: {command_nft_delete} {handle}")
-                                    output = bash('-c', f"{command_nft_delete} {handle}")
-                                    print("Delete operation successful:", output)
-                                else:
-                                    print("No valid handle found.")
-                            except Exception as e:
-                                print("Error during operations:", e)
-                    else:
-                        print(f"nftables : No match found for : {session['command']}")
+                    delete_nftables_rule(session['command'], test_mode)
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
@@ -159,17 +125,46 @@ def create_app(config_path, session_file, test_mode):
     app.config['sessions'] = sessions
     return app
 
+def delete_nftables_rule(command, test_mode):
+    pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+).*comment\s\'([^\']+)\''
+    match = re.search(pattern, command)
+    if match:
+        table = match.group(1)
+        chain = match.group(2)
+        comment = match.group(3)
+        command_nft_list = f"nft -a list table ip {table}"
+        command_nft_delete = f"nft delete rule ip {table} {chain} handle"
+        if test_mode:
+            print(f"Mock command: {command_nft_list} ... parsing")
+            print(f"Mock command: {command_nft_delete} HANDLE_NUM")
+        else:
+            try:
+                command = f"{command_nft_list} | grep {comment} | grep 'handle'" + " | awk '{print $NF}'"
+                print(f"Executing command: {command}")
+                handle = bash('-c', command, _tty_out=True)
+                handle = handle.strip()
+                if handle:
+                    print(f"Executing command: {command_nft_delete} {handle}")
+                    output = bash('-c', f"{command_nft_delete} {handle}")
+                    print("Delete operation successful:", output)
+                else:
+                    print("No valid handle found.")
+            except Exception as e:
+                print("Error during operations:", e)
+    else:
+        print(f"nftables : No match found for : {command}")
+
 def cleanup_iptables(sessions, test_mode):
     for session in sessions:
         if args.routing_type == 'iptables':
             command = session['command'].replace('-A', '-D')
+            if test_mode:
+                subprocess.run(["echo", "Mock command: ", *command.split()], check=True)
+            else:
+                print(f"Executing command: {command}")
+                subprocess.run(command.split(), check=True)
         elif args.routing_type == 'nftables':
-            command = session['command'].replace('add', 'del')
-        if test_mode:
-            subprocess.run(["echo", "Mock command: ", *command.split()], check=True)
-        else:
-            print(f"Executing command: {command}")
-            subprocess.run(command.split(), check=True)
+            delete_nftables_rule(session['command'], test_mode)
 
 def apply_dnat_snat_rules(config, test_mode):
     for app_name, app_config in config.items():
