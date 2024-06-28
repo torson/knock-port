@@ -34,6 +34,9 @@ class TestServer(unittest.TestCase):
         # Start a simple HTTP server in the container
         cls.container.exec_run(f"python -m http.server {cls.test_app_port} --bind 0.0.0.0 &")
         
+        # Wait for the HTTP server to start
+        time.sleep(2)
+        
         print("nftables table and chain created, default drop rule added, and HTTP server started")
         print("Container logs:")
         print(cls.container.logs().decode('utf-8'))
