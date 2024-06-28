@@ -58,7 +58,10 @@ sleep 3
 # Run the tests
 run_command python test_server.py
 
-run_command docker stop port-knock-server
+log docker exec port-knock-server bash -c \
+    'killall python'
+docker exec port-knock-server bash -c \
+    'killall python'
 
 ## testing --routing-type nftables
 log docker exec port-knock-server bash -c \
