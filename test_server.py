@@ -57,7 +57,7 @@ class TestServer(unittest.TestCase):
         
         # Test accessibility after knock
         response = requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
-        self.assertEqual(response.status_code, 200, "Port should be accessible after knock")
+        self.assertEqual(response.status_code, 200, f"Port {self.test_app_port} should be accessible after knock")
 
     def test_default_drop(self):
         # Test that the port is not accessible by default
@@ -77,7 +77,7 @@ class TestServer(unittest.TestCase):
 
         # Test accessibility
         response = requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
-        self.assertEqual(response.status_code, 200, "Port should be accessible after knock")
+        self.assertEqual(response.status_code, 200, f"Port {self.test_app_port} should be accessible after knock")
 
         # Wait for the rule to expire
         with open('config.test.yaml', 'r') as config_file:
