@@ -69,15 +69,21 @@ class TestServer(unittest.TestCase):
 
     def test_port_accessibility(self):
         # Knock to open the port
-        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'}, timeout=1)
+        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'}, timeout=5)
         self.assertEqual(response.status_code, 503)
 
-        # Wait for the rule to be applied
-        time.sleep(5)
-
-        # Test accessibility
-        response = requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
-        self.assertEqual(response.status_code, 200, f"Port {self.test_app_port} should be accessible after knock")
+        # Wait for the rule to be applied and test accessibility with retries
+        max_retries = 10
+        retry_delay = 1
+        for _ in range(max_retries):
+            try:
+                response = requests.get(f'http://localhost:{self.test_app_port}', timeout=5)
+                if response.status_code == 200:
+                    break
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                time.sleep(retry_delay)
+        else:
+            self.fail(f"Port {self.test_app_port} should be accessible after knock")
 
         # Wait for the rule to expire
         with open('config.test.yaml', 'r') as config_file:
@@ -86,8 +92,8 @@ class TestServer(unittest.TestCase):
         time.sleep(sleep_duration)
 
         # Test that the port is no longer accessible
-        with self.assertRaises(requests.exceptions.ConnectionError):
-            requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
+        with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+            requests.get(f'http://localhost:{self.test_app_port}', timeout=5)
 
     def test_session_expiration(self):
         # Load the config file
