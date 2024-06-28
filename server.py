@@ -126,6 +126,9 @@ def create_app(config_path, session_file, test_mode):
     return app
 
 def delete_nftables_rule(command, test_mode):
+    # with nftables you can't just replace 'add' with 'del' like it's done with iptables, it's much more complicated , you need to list all the rules of a table, find the one to delete, take the handle number and then delete that handle. Insane.
+    # nft delete rule ip vyos_filter NAME_IN-OpenVPN-KnockPort handle $(nft -a list table ip vyos_filter | grep "ipv4-NAM-IN-OpenVPN-KnockPort-tmp-127.0.0.1" | grep "handle" | awk '{print $NF}')
+    # Regex pattern to capture the 5th word, 6th word, and the last quoted word
     pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+).*comment\s\'([^\']+)\''
     match = re.search(pattern, command)
     if match:
