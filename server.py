@@ -11,7 +11,7 @@ import re
 import os
 from pprint import pprint
 import pprint
-from sh import bash, grep, awk
+from sh import bash
 
 app = Flask(__name__)
 
@@ -108,16 +108,16 @@ def create_app(config_path, session_file, test_mode):
                     print("Session is duplicate, updating 'expires_at'")
                     break
             if not session_exists:
-                if test_mode:
-                    print(f"Mock command: {command}")
-                else:
-                    print(f"Executing command: {command}")
-                    try:
+                try:
+                    if test_mode:
+                        print(f"Mock command: {command}")
+                    else:
+                        print(f"Executing command: {command}")
                         print(bash('-c', command, _tty_out=True))
-                    except Exception as e:
-                        print("Error during operations:", e)
-                with lock:
-                    sessions.append({'command': command, 'expires_at': expires_at})
+                    with lock:
+                        sessions.append({'command': command, 'expires_at': expires_at})
+                except Exception as e:
+                    print("Error during operations:", e)
         else:
             print(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
         abort(503)
@@ -155,7 +155,7 @@ def delete_nftables_rule(command, test_mode):
             except Exception as e:
                 print("Error during operations:", e)
     else:
-        print(f"nftables : No match found for : {command}")
+        print(f"nftables : No match found with '{command_nft_list}' for : {command}")
 
 def cleanup_iptables(sessions, test_mode):
     for session in sessions:
