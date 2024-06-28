@@ -22,16 +22,20 @@ class TestServer(unittest.TestCase):
         cls.container.exec_run('nft add table ip input_test')
         cls.container.exec_run("nft add chain ip input_test in-knock-port '{ type filter hook input priority filter; policy accept; }'")
         
-        # Add a default drop rule for the test_app port
+        # Set default policies
         with open('config.test.yaml', 'r') as config_file:
             config = yaml.safe_load(config_file)
         cls.test_app_port = config['test_app']['port']
-        # iptables (using -I INPUT 1 to insert at the beginning, and then moving it to the end)
-        cls.container.exec_run(f"iptables -I INPUT 1 -p tcp --dport {cls.test_app_port} -j DROP")
-        cls.container.exec_run(f"iptables -D INPUT -p tcp --dport {cls.test_app_port} -j DROP")
-        cls.container.exec_run(f"iptables -A INPUT -p tcp --dport {cls.test_app_port} -j DROP")
-        # nftables (add to the end of the chain)
-        cls.container.exec_run(f"nft add rule ip input_test in-knock-port tcp dport {cls.test_app_port} drop")
+        # iptables: Set default policy to DROP for INPUT chain
+        cls.container.exec_run("iptables -P INPUT DROP")
+        # Allow established connections
+        cls.container.exec_run("iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT")
+        # Allow loopback
+        cls.container.exec_run("iptables -A INPUT -i lo -j ACCEPT")
+        # nftables: Set default policy to drop
+        cls.container.exec_run("nft add rule ip input_test in-knock-port ct state established,related accept")
+        cls.container.exec_run("nft add rule ip input_test in-knock-port iif lo accept")
+        cls.container.exec_run("nft add rule ip input_test in-knock-port drop")
         
         print("nftables table and chain created, default drop rule added")
         print("Container logs:")

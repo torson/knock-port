@@ -201,6 +201,12 @@ def apply_dnat_snat_rules(config, test_mode):
                 subprocess.run(dnat_command.split(), check=True)
                 log(f"Executing command: {snat_command}")
                 subprocess.run(snat_command.split(), check=True)
+    
+    # Set default policies
+    if not test_mode:
+        subprocess.run("iptables -P INPUT DROP".split(), check=True)
+        subprocess.run("iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT".split(), check=True)
+        subprocess.run("iptables -A INPUT -i lo -j ACCEPT".split(), check=True)
 
 def cleanup_dnat_snat_rules(config, test_mode):
     for app_name, app_config in config.items():
