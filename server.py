@@ -224,6 +224,6 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
     signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
     if args.cert and args.key:
-        app.run(port=args.port, ssl_context=(args.cert, args.key))
+        app.run(host='0.0.0.0', port=args.port, ssl_context=(args.cert, args.key))
     else:
-        app.run(port=args.port)
+        app.run(host='0.0.0.0', port=args.port)
