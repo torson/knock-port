@@ -6,8 +6,24 @@ from flask import Flask, request, abort
 from threading import Thread, Lock
 import json
 import subprocess
+from subprocess import Popen, PIPE
+import re
+import os
+from pprint import pprint
+import pprint
+from sh import bash, grep, awk
 
 app = Flask(__name__)
+
+pp = pprint.PrettyPrinter(indent=4)
+
+def log(text):
+    message = "%s: %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), text)
+    print >>sys.stdout, message
+
+def log_err(text):
+    message = "%s: %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), text)
+    print >>sys.stderr, message
 
 def load_config(config_path):
     print("Loading configuration...")
@@ -24,16 +40,77 @@ def manage_sessions(session_file, sessions, lock, test_mode):
             expired_sessions = [s for s in sessions if current_time > s['expires_at']]
             for session in expired_sessions:
                 sessions.remove(session)
-                iptables_command = session['iptables_command'].replace('-A', '-D')
-                if test_mode:
-                    subprocess.run(["echo", "Mock command: ", *iptables_command.split()], check=True)
-                else:
-                    print(f"Executing command: {iptables_command}")
-                    if args.routing_type == 'iptables':
-                        subprocess.run(iptables_command.split(), check=True)
-                    elif args.routing_type == 'nftables':
-                        nftables_command = iptables_command.replace('iptables', 'nft')
-                        subprocess.run(nftables_command.split(), check=True)
+                if args.routing_type == 'iptables':
+                    command = session['command'].replace('-A', '-D')
+                    if test_mode:
+                        print(f"Mock command: {command}")
+                    else:
+                        print(f"Executing command: {command}")
+                        try:
+                            output = bash('-c', command)
+                        except Exception as e:
+                            print("Error during operations:", e)
+                elif args.routing_type == 'nftables':
+                    # with nftables you can't just replace 'add' with 'del' like it's done with iptables, it's much more complicated , you need to list all the rules of a table, find the one to delete, take the handle number and then delete that handle. Insane.
+                    # nft delete rule ip vyos_filter NAME_IN-OpenVPN-KnockPort handle $(nft -a list table ip vyos_filter | grep "ipv4-NAM-IN-OpenVPN-KnockPort-tmp-127.0.0.1" | grep "handle" | awk '{print $NF}')
+                    # Regex pattern to capture the 5th word, 6th word, and the last quoted word
+                    command = session['command']
+                    pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+).*comment\s\'([^\']+)\''
+                    match = re.search(pattern, command)
+                    if match:
+                        table = match.group(1)
+                        chain = match.group(2)
+                        comment = match.group(3)
+                        command_nft_list = f"nft -a list table ip {table}"
+                        command_nft_delete = f"nft delete rule ip {table} {chain} handle"
+                        if test_mode:
+                            print(f"Mock command: {command_nft_list} ... parsing")
+                            print(f"Mock command: {command_nft_delete} HANDLE_NUM")
+                        else:
+                            # Step 1: Execute nft list command
+                            # Step 2 to 4: Pipe through grep twice and awk to extract the handle
+                            try:
+                                command = f"{command_nft_list} | grep {comment} | grep 'handle'" + " | awk '{print $NF}'"
+                                print(f"Executing command: {command}")
+                                handle = bash('-c', command, _tty_out=True)
+                                # handle = (
+                                #     bash('-c', command_nft_list) |
+                                #     grep(comment) |
+                                #     grep("handle") |
+                                #     awk('{print $NF}')
+                                # )
+                                # Strip any extraneous whitespace from the handle
+                                handle = handle.strip()
+                                # Step 5: Use the handle to delete the rule, if a valid handle is found
+                                if handle:
+                                    print(f"Executing command: {command_nft_delete} {handle}")
+                                    output = bash('-c', f"{command_nft_delete} {handle}")
+                                    print("Delete operation successful:", output)
+                                else:
+                                    print("No valid handle found.")
+                            except Exception as e:
+                                print("Error during operations:", e)
+
+                        # command = f"nft -a list table ip {table}"
+                        # if test_mode:
+                        #     subprocess.run(["echo", "Mock command: ", *command.split(), "...parsing"], check=True)
+                        #     command = f"nft delete rule ip {table} {chain} handle HANDLE_NUM"
+                        #     subprocess.run(["echo", "Mock command: ", *command.split()], check=True)
+                        # else:
+                        #     print(f"Executing command: {command}")
+                        #     result = subprocess.run(command.split(), shell=True, text=True, capture_output=True)
+                        #     if result.returncode != 0:
+                        #         print("Failed to execute command:", result.stderr)
+                        #     lines_with_comment = [
+                        #         line for line in result.stdout.split('\n')
+                        #         if comment in line and "handle" in line
+                        #     ]
+                        #     # Extract and return the last word (typically the handle) from each filtered line
+                        #     handles = [line.split()[-1] for line in lines_with_comment]
+                        #     for handle in handles:
+                        #         command = f"nft delete rule ip {table} {chain} handle {handle}"
+                    else:
+                        print(f"nftables : No match found for : {session['command']}")
             with open(session_file, 'w') as f:
                 json.dump(sessions, f)
 
@@ -72,26 +149,34 @@ def create_app(config_path, session_file, test_mode):
             destination = config[app_name]['destination']
             duration = config[app_name]['duration']
             protocol = config[app_name]['protocol']
+            interface = config[app_name]['interface']
             if destination == "local":
-                iptables_command = f"iptables -A INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
+                if args.routing_type == 'iptables':
+                    command = f"iptables -A INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
+                elif args.routing_type == 'nftables':
+                    command = f"nft add rule ip vyos_filter NAME_IN-OpenVPN-KnockPort {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-NAM-IN-OpenVPN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
             else:
-                iptables_command = f"iptables -A FORWARD -p {protocol} -s {client_ip} -d {destination} --dport {port} -j ACCEPT"
+                if args.routing_type == 'iptables':
+                    command = f"iptables -A FORWARD -p {protocol} -s {client_ip} -d {destination} --dport {port} -j ACCEPT"
             session_exists = False
             expires_at = time.time() + duration
             for session in sessions:
-                if session['iptables_command'] == iptables_command:
+                if session['command'] == command:
                     session['expires_at'] = expires_at
                     session_exists = True
                     print("Session is duplicate, updating 'expires_at'")
                     break
             if not session_exists:
                 if test_mode:
-                    subprocess.run(["echo", "Mock command: ", *iptables_command.split()], check=True)
+                    print(f"Mock command: {command}")
                 else:
-                    print(f"Executing command: {iptables_command}")
-                    subprocess.run(iptables_command.split(), check=True)
+                    print(f"Executing command: {command}")
+                    try:
+                        print(bash('-c', command, _tty_out=True))
+                    except Exception as e:
+                        print("Error during operations:", e)
                 with lock:
-                    sessions.append({'iptables_command': iptables_command, 'expires_at': expires_at})
+                    sessions.append({'command': command, 'expires_at': expires_at})
         else:
             print(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
         abort(503)
@@ -101,12 +186,15 @@ def create_app(config_path, session_file, test_mode):
 
 def cleanup_iptables(sessions, test_mode):
     for session in sessions:
-        iptables_command = session['iptables_command'].replace('-A', '-D')
+        if args.routing_type == 'iptables':
+            command = session['command'].replace('-A', '-D')
+        elif args.routing_type == 'nftables':
+            command = session['command'].replace('add', 'del')
         if test_mode:
-            subprocess.run(["echo", "Mock command: ", *iptables_command.split()], check=True)
+            subprocess.run(["echo", "Mock command: ", *command.split()], check=True)
         else:
-            print(f"Executing command: {iptables_command}")
-            subprocess.run(iptables_command.split(), check=True)
+            print(f"Executing command: {command}")
+            subprocess.run(command.split(), check=True)
 
 def apply_dnat_snat_rules(config, test_mode):
     for app_name, app_config in config.items():
