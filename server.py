@@ -107,12 +107,14 @@ def create_app(config_path, session_file, test_mode):
                     command = f"iptables -A INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
                 elif args.routing_type == 'nftables':
                     if args.nftables_table and args.nftables_chain:
-                        command = f"nft add rule ip {args.nftables_table} {args.nftables_chain} {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
+                        description = f"{args.rule_description} " if args.rule_description else ""
+                        command = f"nft add rule ip {args.nftables_table} {args.nftables_chain} {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment '{description}ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
                     else:
                         log_err("Error: nftables_table and nftables_chain must be specified when using --routing-type nftables")
                         abort(500)
                 elif args.routing_type == 'vyos':
-                    command = f"nft add rule ip vyos_filter NAME_IN-OpenVPN-KnockPort {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
+                    description = f"{args.rule_description} " if args.rule_description else ""
+                    command = f"nft add rule ip vyos_filter NAME_IN-OpenVPN-KnockPort {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment '{description}ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
             else:
                 if args.routing_type == 'iptables':
                     command = f"iptables -A FORWARD -p {protocol} -s {client_ip} -d {destination} --dport {port} -j ACCEPT"
@@ -232,6 +234,7 @@ if __name__ == '__main__':
     parser.add_argument('--routing-type', type=str, default='iptables', choices=['iptables', 'nftables', 'vyos'], help='Type of routing to use (default: iptables)')
     parser.add_argument('--nftables-table', type=str, help='add nftables rules to this table')
     parser.add_argument('--nftables-chain', type=str, help='add nftables rules to this table chain')
+    parser.add_argument('--rule-description', type=str, default='', help='Description to add to the firewall rule')
     args = parser.parse_args()
 
     app = create_app(args.config, 'session_cache.json', args.test)
