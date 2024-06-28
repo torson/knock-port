@@ -77,25 +77,25 @@ def create_app(config_path, session_file, test_mode):
 
     @app.route('/', methods=['GET', 'POST'])
     def handle_request():
-        print(f"Received {request.method} request from {request.remote_addr}")
+        log(f"Received {request.method} request from {request.remote_addr}")
         if request.method == 'GET':
-            print("Aborting GET request with 404")
+            log("Aborting GET request with 404")
             abort(404)
         elif request.method == 'POST':
-            print("Processing POST request")
+            log("Processing POST request")
             data = request.form
-            print(f"Received data: {dict(data)}")
+            log(f"Received data: {dict(data)}")
             try:
                 app_name = data['app']
                 access_key = data['access_key']
             except KeyError as e:
-                print(f"KeyError: {e}")
-                print("Invalid data format received")
+                log_err(f"KeyError: {e}")
+                log_err("Invalid data format received")
                 abort(503)
-        print(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
+        log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
 
         client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-        print(f"Client IP: {client_ip}")
+        log(f"Client IP: {client_ip}")
         if app_name in config and config[app_name]['access_key'] == access_key:
             port = config[app_name]['port']
             destination = config[app_name]['destination']
@@ -124,21 +124,21 @@ def create_app(config_path, session_file, test_mode):
                 if session['command'] == command:
                     session['expires_at'] = expires_at
                     session_exists = True
-                    print("Session is duplicate, updating 'expires_at'")
+                    log("Session is duplicate, updating 'expires_at'")
                     break
             if not session_exists:
                 try:
                     if test_mode:
-                        print(f"Mock command: {command}")
+                        log(f"Mock command: {command}")
                     else:
-                        print(f"Executing command: {command}")
-                        print(bash('-c', command, _tty_out=True))
+                        log(f"Executing command: {command}")
+                        log(str(bash('-c', command, _tty_out=True)))
                     with lock:
                         sessions.append({'command': command, 'expires_at': expires_at})
                 except Exception as e:
-                    print("Error during operations:", e)
+                    log_err(f"Error during operations: {e}")
         else:
-            print(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
+            log_err(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
         abort(503)
     app.config['config'] = config
     app.config['sessions'] = sessions
@@ -217,7 +217,7 @@ def cleanup_dnat_snat_rules(config, test_mode):
                 subprocess.run(snat_command.split(), check=True)
 
 def signal_handler(sig, frame, sessions, config, test_mode):
-    print("Server is shutting down...")
+    log("Server is shutting down...")
     cleanup_iptables(sessions, test_mode)
     cleanup_dnat_snat_rules(config, test_mode)
     sys.exit(0)
