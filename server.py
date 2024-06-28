@@ -84,7 +84,7 @@ def create_app(config_path, session_file, test_mode):
         elif request.method == 'POST':
             print("Processing POST request")
             data = request.form
-            print(f"Received data: {data}")
+            print(f"Received data: {dict(data)}")
             try:
                 app_name = data['app']
                 access_key = data['access_key']
