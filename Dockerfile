@@ -6,18 +6,19 @@ RUN apt-get update && \
     echo "install system network utils" && \
     apt-get -y install iputils-ping net-tools telnet iproute2 procps dnsutils && \
     echo "install system utils" && \
-    apt-get -y install procps && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get -y install procps
+    # apt-get clean && \
+    # rm -rf /var/lib/apt/lists/*
 
-# echo "install iptables and nftables" && \
-#     apt-get -y install iptables nftables
+RUN echo "install iptables and nftables" && \
+    apt-get -y install iptables nftables
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# COPY . .
 
 EXPOSE 8080
 
-CMD ["python", "server.py", "--host", "0.0.0.0"]
+CMD pip install --no-cache-dir -r requirements.txt && \
+    python server.py
