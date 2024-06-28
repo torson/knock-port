@@ -32,7 +32,7 @@ class TestServer(unittest.TestCase):
         cls.container.exec_run(f"nft add rule ip input_test in-knock-port tcp dport {cls.test_app_port} drop")
         
         # Start a simple HTTP server in the container
-        cls.container.exec_run(f"python -m http.server {cls.test_app_port} &")
+        cls.container.exec_run(f"python -m http.server {cls.test_app_port} --bind 0.0.0.0 &")
         
         print("nftables table and chain created, default drop rule added, and HTTP server started")
         print("Container logs:")
@@ -70,15 +70,18 @@ class TestServer(unittest.TestCase):
             requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
 
     def test_port_accessibility(self):
+        # Get the container's IP address
+        container_ip = self.container.attrs['NetworkSettings']['IPAddress']
+
         # Knock to open the port
         response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'})
         self.assertEqual(response.status_code, 503)
 
         # Wait for the rule to be applied
-        time.sleep(1)
+        time.sleep(2)
 
         # Test accessibility
-        response = requests.get(f'http://localhost:{self.test_app_port}')
+        response = requests.get(f'http://{container_ip}:{self.test_app_port}')
         self.assertEqual(response.status_code, 200, "Port should be accessible after knock")
 
         # Wait for the rule to expire
@@ -89,7 +92,7 @@ class TestServer(unittest.TestCase):
 
         # Test that the port is no longer accessible
         with self.assertRaises(requests.exceptions.ConnectionError):
-            requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
+            requests.get(f'http://{container_ip}:{self.test_app_port}', timeout=1)
 
     def test_session_expiration(self):
         # Load the config file
