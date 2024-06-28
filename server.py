@@ -42,7 +42,7 @@ def manage_sessions(session_file, sessions, lock, test_mode):
             for session in expired_sessions:
                 sessions.remove(session)
                 if args.routing_type == 'iptables':
-                    command = session['command'].replace('-A', '-D')
+                    command = session['command'].replace('-I', '-D')
                     if test_mode:
                         log(f"Mock command: {command}")
                     else:
@@ -104,7 +104,7 @@ def create_app(config_path, session_file, test_mode):
             interface = config[app_name]['interface']
             if destination == "local":
                 if args.routing_type == 'iptables':
-                    command = f"iptables -A INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
+                    command = f"iptables -I INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
                 elif args.routing_type == 'nftables':
                     if args.nftables_table and args.nftables_chain:
                         description = f"{args.rule_description} " if args.rule_description else ""
@@ -117,7 +117,7 @@ def create_app(config_path, session_file, test_mode):
                     command = f"nft add rule ip vyos_filter NAME_IN-OpenVPN-KnockPort {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment '{description}ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
             else:
                 if args.routing_type == 'iptables':
-                    command = f"iptables -A FORWARD -p {protocol} -s {client_ip} -d {destination} --dport {port} -j ACCEPT"
+                    command = f"iptables -I FORWARD -p {protocol} -s {client_ip} -d {destination} --dport {port} -j ACCEPT"
             session_exists = False
             expires_at = time.time() + duration
             for session in sessions:
@@ -201,12 +201,6 @@ def apply_dnat_snat_rules(config, test_mode):
                 subprocess.run(dnat_command.split(), check=True)
                 log(f"Executing command: {snat_command}")
                 subprocess.run(snat_command.split(), check=True)
-    
-    # Set default policies
-    if not test_mode:
-        subprocess.run("iptables -P INPUT DROP".split(), check=True)
-        subprocess.run("iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT".split(), check=True)
-        subprocess.run("iptables -A INPUT -i lo -j ACCEPT".split(), check=True)
 
 def cleanup_dnat_snat_rules(config, test_mode):
     for app_name, app_config in config.items():
