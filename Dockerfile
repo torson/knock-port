@@ -16,5 +16,4 @@ RUN echo "install iptables and nftables" && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-CMD echo "keeping service up ..." && \
-    tail -f /dev/null
+CMD ["sh", "-c", "echo 'keeping service up ...' && tail -f /dev/null"]
