@@ -73,9 +73,6 @@ class TestServer(unittest.TestCase):
             requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
 
     def test_port_accessibility(self):
-        # Get the container's IP address
-        container_ip = self.container.attrs['NetworkSettings']['IPAddress']
-
         # Knock to open the port
         response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'})
         self.assertEqual(response.status_code, 503)
@@ -84,7 +81,7 @@ class TestServer(unittest.TestCase):
         time.sleep(2)
 
         # Test accessibility
-        response = requests.get(f'http://{container_ip}:{self.test_app_port}')
+        response = requests.get(f'http://localhost:{self.test_app_port}')
         self.assertEqual(response.status_code, 200, "Port should be accessible after knock")
 
         # Wait for the rule to expire
@@ -95,7 +92,7 @@ class TestServer(unittest.TestCase):
 
         # Test that the port is no longer accessible
         with self.assertRaises(requests.exceptions.ConnectionError):
-            requests.get(f'http://{container_ip}:{self.test_app_port}', timeout=1)
+            requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
 
     def test_session_expiration(self):
         # Load the config file
