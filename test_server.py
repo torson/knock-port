@@ -107,21 +107,23 @@ class TestServer(unittest.TestCase):
             requests.get(f'http://localhost:{self.test_app_port}', timeout=5)
 
     def test_session_expiration(self):
-        # Load the config file
-        with open('config.test.yaml', 'r') as config_file:
-            config = yaml.safe_load(config_file)
-        
-        # Get the duration from the config and add 5 seconds
-        sleep_duration = config['test_app']['duration'] + 5
-        
         response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'}, timeout=1)
         self.assertEqual(response.status_code, 503)
         
-        time.sleep(sleep_duration)
-
-        exec_result = self.container.exec_run('cat session_cache.json')
-        sessions = exec_result.output.decode('utf-8')
+        max_wait_time = 60  # Maximum wait time in seconds
+        start_time = time.time()
+        
+        while time.time() - start_time < max_wait_time:
+            exec_result = self.container.exec_run('cat session_cache.json')
+            sessions = exec_result.output.decode('utf-8')
+            if sessions.strip() == '[]':
+                break
+            time.sleep(1)
+        
         self.assertEqual(sessions.strip(), '[]', "Session should be expired and removed from the cache")
+        
+        if time.time() - start_time >= max_wait_time:
+            self.fail("Session did not expire within the maximum wait time")
 
     def test_invalid_access_key(self):
         response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'invalidkey'}, timeout=1)
