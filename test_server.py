@@ -3,8 +3,15 @@ import requests
 import time
 import unittest
 import docker
+import json
 
 class TestServer(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.client = docker.from_env()
+        cls.container = cls.client.containers.get('port-knock-server')
+        print("Container logs:")
+        print(cls.container.logs().decode('utf-8'))
     @classmethod
     def setUpClass(cls):
         cls.client = docker.from_env()

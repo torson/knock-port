@@ -74,15 +74,19 @@ def create_app(config_path, session_file, test_mode):
 
     @app.route('/', methods=['GET', 'POST'])
     def handle_request():
+        print(f"Received {request.method} request")
         if request.method == 'GET':
+            print("Aborting GET request with 404")
             abort(404)
         elif request.method == 'POST':
-            print("Received POST request")
+            print("Processing POST request")
             data = request.form
+            print(f"Received data: {data}")
             try:
                 app_name = data['app']
                 access_key = data['access_key']
-            except KeyError:
+            except KeyError as e:
+                print(f"KeyError: {e}")
                 print("Invalid data format received")
                 abort(503)
         print(f"Parsed form data - App: {app_name}, Access Key: {access_key}")

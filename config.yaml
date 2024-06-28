@@ -2,10 +2,17 @@
 openvpn:
   port: 1194
   access_key: secret123
-  destination: local  # 'local' or IP (listening on the same port)
-  # destination: 192.68.0.20  # 'local' or IP (listening on the same port)
+  destination: local
   protocol: tcp
-  duration: 10  # Duration in seconds
+  duration: 10
+  interface: eth0
+
+test_app:
+  port: 8080
+  access_key: test_secret
+  destination: local
+  protocol: tcp
+  duration: 5
   interface: eth0
 
 # mysql:
