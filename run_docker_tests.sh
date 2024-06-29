@@ -60,8 +60,22 @@ docker exec port-knock-server bash -c \
     'python server.py -c config.test.yaml --routing-type iptables --port 8080 > run_docker_tests.server.iptables.log 2>&1 &'
 sleep 3
 
+run_command docker exec port-knock-server iptables -A INPUT -p tcp --dport ${TEST_APP_PORT} -j DROP
+
 # Run the tests
 run_command python test_server.py
+
+# deleting iptables rule because it is set also as nftables rule
+#     $ nft -a list ruleset
+#     table ip filter { # handle 1
+#         chain INPUT { # handle 1
+#             type filter hook input priority filter; policy accept;
+#             tcp dport 9999 counter packets 8 bytes 480 drop # handle 2
+#         }
+#     }
+
+run_command docker exec port-knock-server \
+    iptables -D INPUT -p tcp --dport ${TEST_APP_PORT} -j DROP
 
 log docker exec port-knock-server bash -c \
     'killall python'
@@ -70,10 +84,21 @@ docker exec port-knock-server bash -c \
 
 ### testing --routing-type nftables
 log docker exec port-knock-server bash -c \
-    'python server.py -c config.test.yaml --routing-type nftables --nftables-table input_test --nftables-chain in-knock-port --port 8080'
+    'python server.py -c config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --port 8080'
 docker exec port-knock-server bash -c \
-    'python server.py -c config.test.yaml --routing-type nftables --nftables-table input_test --nftables-chain in-knock-port --port 8080 > run_docker_tests.server.nftables.log 2>&1 &'
+    'python server.py -c config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --port 8080 > run_docker_tests.server.nftables.log 2>&1 &'
 sleep 3
+
+# Create nftables table and chain
+run_command docker exec port-knock-server \
+    nft add table ip filter
+log docker exec port-knock-server \
+    nft add chain ip filter INPUT '{ type filter hook input priority filter; policy accept; }'
+docker exec port-knock-server \
+    nft add chain ip filter INPUT '{ type filter hook input priority filter; policy accept; }'
+# setting default to drop
+run_command docker exec port-knock-server \
+    nft add rule ip filter INPUT tcp dport ${TEST_APP_PORT} drop
 
 # Run the tests
 run_command python test_server.py

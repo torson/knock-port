@@ -10,8 +10,8 @@ RUN apt-get update && \
     # apt-get clean && \
     # rm -rf /var/lib/apt/lists/*
 
-RUN echo "install iptables and nftables" && \
-    apt-get -y install iptables nftables
+RUN echo "install iptables and nftables, curl" && \
+    apt-get -y install iptables nftables curl
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

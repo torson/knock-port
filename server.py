@@ -33,7 +33,6 @@ def load_config(config_path):
 
 def manage_sessions(session_file, sessions, lock, test_mode):
     while True:
-        time.sleep(5)
         current_time = time.time()
         with lock:
             if sessions is None:
@@ -41,6 +40,8 @@ def manage_sessions(session_file, sessions, lock, test_mode):
             expired_sessions = [s for s in sessions if current_time > s['expires_at']]
             for session in expired_sessions:
                 sessions.remove(session)
+                with open(session_file, 'w') as f:
+                    json.dump(sessions, f)
                 if args.routing_type == 'iptables':
                     command = session['command'].replace('-I', '-D')
                     if test_mode:
@@ -55,8 +56,7 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                     delete_nftables_rule(session['command'], test_mode)
                 elif args.routing_type == 'vyos':
                     delete_nftables_rule(session['command'], test_mode)
-            with open(session_file, 'w') as f:
-                json.dump(sessions, f)
+        time.sleep(5)
 
 def create_app(config_path, session_file, test_mode):
     config = load_config(config_path)
@@ -106,15 +106,9 @@ def create_app(config_path, session_file, test_mode):
                 if args.routing_type == 'iptables':
                     command = f"iptables -I INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
                 elif args.routing_type == 'nftables':
-                    if args.nftables_table and args.nftables_chain:
-                        description = f"{args.rule_description} " if args.rule_description else ""
-                        command = f"nft add rule ip {args.nftables_table} {args.nftables_chain} {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment '{description}ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
-                    else:
-                        log_err("Error: nftables_table and nftables_chain must be specified when using --routing-type nftables")
-                        abort(500)
+                    command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
                 elif args.routing_type == 'vyos':
-                    description = f"{args.rule_description} " if args.rule_description else ""
-                    command = f"nft add rule ip vyos_filter NAME_IN-OpenVPN-KnockPort {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment '{description}ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
+                    command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
             else:
                 if args.routing_type == 'iptables':
                     command = f"iptables -I FORWARD -p {protocol} -s {client_ip} -d {destination} --dport {port} -j ACCEPT"
@@ -122,9 +116,9 @@ def create_app(config_path, session_file, test_mode):
             expires_at = time.time() + duration
             for session in sessions:
                 if session['command'] == command:
+                    log("Session is duplicate, updating 'expires_at'")
                     session['expires_at'] = expires_at
                     session_exists = True
-                    log("Session is duplicate, updating 'expires_at'")
                     break
             if not session_exists:
                 try:
@@ -135,6 +129,8 @@ def create_app(config_path, session_file, test_mode):
                         log(str(bash('-c', command, _tty_out=True)))
                     with lock:
                         sessions.append({'command': command, 'expires_at': expires_at})
+                        with open(session_file, 'w') as f:
+                            json.dump(sessions, f)
                 except Exception as e:
                     log_err(f"Error during operations: {e}")
         else:
@@ -232,10 +228,25 @@ if __name__ == '__main__':
     parser.add_argument('--cert', type=str, help='Path to the SSL certificate file. This can be server certificate alone, or a bundle of (1) server, (2) intermediary and (3) root CA certificate, in this order, like TLS expects it.')
     parser.add_argument('--key', type=str, help='Path to the SSL key file')
     parser.add_argument('--routing-type', type=str, default='iptables', choices=['iptables', 'nftables', 'vyos'], help='Type of routing to use (default: iptables)')
-    parser.add_argument('--nftables-table', type=str, help='add nftables rules to this table')
+    parser.add_argument('--nftables-table', type=str, help='add nftables rules to this table (vyos_filter by default when --routing-type vyos)')
     parser.add_argument('--nftables-chain', type=str, help='add nftables rules to this table chain')
     parser.add_argument('--rule-description', type=str, default='', help='Description to add to the firewall rule')
     args = parser.parse_args()
+
+    if args.routing_type == 'vyos':
+        if not args.nftables_table :
+            # table vyos_filter is used by VyOs so we set it as default
+            args.nftables_table = "vyos_filter"
+        if not args.nftables_chain :
+            args.nftables_chain = "VYOS_INPUT_filter"
+
+    if args.routing_type == 'nftables':
+        if not args.nftables_table :
+            # table vyos_filter is used by VyOs so we set it as default
+            args.nftables_table = "filter"
+        if not args.nftables_chain :
+            # table vyos_filter is used by VyOs so we set it as default
+            args.nftables_chain = "INPUT"
 
     app = create_app(args.config, 'session_cache.json', args.test)
     apply_dnat_snat_rules(app.config['config'], args.test)
