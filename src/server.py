@@ -237,6 +237,16 @@ def cleanup_dnat_snat_rules(config, test_mode):
                 log(f"Executing command: {snat_command}")
                 subprocess.run(snat_command.split(), check=True)
 
+def setup_stealthy_http(http_port):
+    # Allow incoming SYN packets
+    subprocess.run(["iptables", "-A", "INPUT", "-p", "tcp", "--dport", str(http_port), "--tcp-flags", "SYN,ACK", "SYN", "-j", "ACCEPT"])
+    
+    # Allow outgoing SYN-ACK packets for the initial handshake
+    subprocess.run(["iptables", "-A", "OUTPUT", "-p", "tcp", "--sport", str(http_port), "--tcp-flags", "SYN,ACK", "SYN,ACK", "-j", "ACCEPT"])
+    
+    # Drop all other outgoing packets from the HTTP port
+    subprocess.run(["iptables", "-A", "OUTPUT", "-p", "tcp", "--sport", str(http_port), "-j", "DROP"])
+
 def signal_handler(sig, frame, sessions, config, test_mode):
     log("Server is shutting down...")
     cleanup_iptables(sessions, test_mode)
@@ -249,7 +259,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Server Application")
     parser.add_argument('-c', '--config', type=str, default='config.yaml', help='Path to the configuration file. If omitted, `config.yaml` in the current directory is used by default')
     parser.add_argument('-t', '--test', action='store_true', help='Enable test mode to mock iptables commands')
-    parser.add_argument('-p', '--port', type=int, default=8080, help='Port to run the server on (default: 8080)')
+    parser.add_argument('--http-port', type=int, default=8080, help='Port to run the HTTP server on (default: 8080)')
+    parser.add_argument('--https-port', type=int, default=8443, help='Port to run the HTTPS server on (default: 8443)')
     parser.add_argument('--cert', type=str, help='Path to the SSL certificate file. This can be server certificate alone, or a bundle of (1) server, (2) intermediary and (3) root CA certificate, in this order, like TLS expects it.')
     parser.add_argument('--key', type=str, help='Path to the SSL key file')
     parser.add_argument('--routing-type', type=str, default='iptables', choices=['iptables', 'nftables', 'vyos'], help='Type of routing to use (default: iptables)')
@@ -259,26 +270,37 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.routing_type == 'vyos':
-        if not args.nftables_table :
-            # table vyos_filter is used by VyOs so we set it as default
+        if not args.nftables_table:
             args.nftables_table = "vyos_filter"
-        if not args.nftables_chain :
+        if not args.nftables_chain:
             args.nftables_chain = "VYOS_INPUT_filter"
 
     if args.routing_type == 'nftables':
-        if not args.nftables_table :
-            # table vyos_filter is used by VyOs so we set it as default
+        if not args.nftables_table:
             args.nftables_table = "filter"
-        if not args.nftables_chain :
-            # table vyos_filter is used by VyOs so we set it as default
+        if not args.nftables_chain:
             args.nftables_chain = "INPUT"
 
     app = create_app(args.config, 'session_cache.json', args.test)
     apply_dnat_snat_rules(app.config['config'], args.test)
-    log(f"Server is starting on 0.0.0.0:{args.port}...")
+    
+    # Set up iptables rules for stealthy HTTP server
+    if args.routing_type == 'iptables':
+        setup_stealthy_http(args.http_port)
+
+    log(f"HTTP Server is starting on 0.0.0.0:{args.http_port}...")
+    log(f"HTTPS Server is starting on 0.0.0.0:{args.https_port}...")
+    
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
     signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
-    if args.cert and args.key:
-        app.run(host='0.0.0.0', port=args.port, ssl_context=(args.cert, args.key))
-    else:
-        app.run(host='0.0.0.0', port=args.port)
+    
+    from threading import Thread
+    
+    http_server = Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': args.http_port, 'ssl_context': None})
+    https_server = Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': args.https_port, 'ssl_context': (args.cert, args.key) if args.cert and args.key else None})
+    
+    http_server.start()
+    https_server.start()
+    
+    http_server.join()
+    https_server.join()
