@@ -42,7 +42,7 @@ if [ ! -f knock-port.testing.pem ] ; then
 
     knock-port.testing
 
-    " | openssl req -x509 -newkey rsa:1024 -keyout knock-port.testing.key -out knock-port.testing.pem -days 3650 -nodes
+    " | openssl req -x509 -newkey rsa:4096 -keyout knock-port.testing.key -out knock-port.testing.pem -days 3650 -nodes
 fi
 
 # Build the Docker image
@@ -56,11 +56,14 @@ docker rm port-knock-server
 
 # Get the test_app port from config.test.yaml
 TEST_SERVICE_PORT=$(grep port tests/config.test.yaml | awk '{print $2}')
-KNOCKPORT_PORT=8080
+KNOCKPORT_PORT_HTTP=8080
+KNOCKPORT_PORT_HTTPS=8443
 
 # Run the server in a Docker container using host network
-run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p ${KNOCKPORT_PORT}:${KNOCKPORT_PORT} -p ${TEST_SERVICE_PORT}:${TEST_SERVICE_PORT} --name port-knock-server port-knock-server python -m http.server ${TEST_SERVICE_PORT}
+run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p ${KNOCKPORT_PORT_HTTP}:${KNOCKPORT_PORT_HTTP} -p ${KNOCKPORT_PORT_HTTPS}:${KNOCKPORT_PORT_HTTPS} -p ${TEST_SERVICE_PORT}:${TEST_SERVICE_PORT} --name port-knock-server port-knock-server python -m http.server ${TEST_SERVICE_PORT}
 cd ${CWD}
+
+exit
 
 ### installing requirements
 log "docker exec port-knock-server bash -c \
@@ -69,21 +72,19 @@ docker exec port-knock-server bash -c \
     'pip install --no-cache-dir -r requirements.txt'
 
 ### testing --routing-type iptables
-# Add a default drop rule for the test_app port
+# python src/server.py -c tests/config.test.yaml --routing-type iptables --http-port ${KNOCKPORT_PORT_HTTP} --https-port ${KNOCKPORT_PORT_HTTPS} --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
 log docker exec port-knock-server bash -c \
-    'python src/server.py -c tests/config.test.yaml --routing-type iptables --port '${KNOCKPORT_PORT}' > tests/run_docker_tests.server.iptables.log 2>&1 &'
+    'python src/server.py -c tests/config.test.yaml --routing-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
 docker exec port-knock-server bash -c \
-    'python src/server.py -c tests/config.test.yaml --routing-type iptables --port '${KNOCKPORT_PORT}' > tests/run_docker_tests.server.iptables.log 2>&1 &'
+    'python src/server.py -c tests/config.test.yaml --routing-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
 sleep 3
 
 # drop access to the testing service port
 run_command docker exec port-knock-server iptables -A INPUT -p tcp --dport ${TEST_SERVICE_PORT} -j DROP
 
 # drop outgoing traffic from knockport on HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a request on HTTP port
-# run_command docker exec port-knock-server iptables -A OUTPUT -p tcp --sport ${KNOCKPORT_PORT} --tcp-flags ALL SYN,ACK -j ACCEPT
-# run_command docker exec port-knock-server iptables -A OUTPUT -p tcp --sport ${KNOCKPORT_PORT} -j DROP
-
-exit
+# run_command docker exec port-knock-server iptables -A OUTPUT -p tcp --sport ${KNOCKPORT_PORT_HTTP} --tcp-flags ALL SYN,ACK -j ACCEPT
+# run_command docker exec port-knock-server iptables -A OUTPUT -p tcp --sport ${KNOCKPORT_PORT_HTTP} -j DROP
 
 # Run the tests
 run_command python tests.py
@@ -107,9 +108,9 @@ docker exec port-knock-server bash -c \
 
 ### testing --routing-type nftables
 log docker exec port-knock-server bash -c \
-    'python src/server.py -c tests/config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --port '${KNOCKPORT_PORT}' > tests/run_docker_tests.server.nftables.log 2>&1 &'
+    'python src/server.py -c tests/config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --port '${KNOCKPORT_PORT_HTTP}' > tests/run_docker_tests.server.nftables.log 2>&1 &'
 docker exec port-knock-server bash -c \
-    'python src/server.py -c tests/config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --port '${KNOCKPORT_PORT}' > tests/run_docker_tests.server.nftables.log 2>&1 &'
+    'python src/server.py -c tests/config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --port '${KNOCKPORT_PORT_HTTP}' > tests/run_docker_tests.server.nftables.log 2>&1 &'
 sleep 3
 
 # Create nftables table and chain

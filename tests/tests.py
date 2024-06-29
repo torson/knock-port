@@ -12,6 +12,11 @@ import subprocess
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
+## testing curl commands
+#  > 2 different requests need to be made one after another
+# curl -d 'app=test_app&access_key=test_secret_http' http://localhost:8080 -v
+# curl -d 'app=test_app&access_key=test_secret_https' https://localhost:8443/secure -v -k
+
 class TestServer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -28,7 +33,7 @@ class TestServer(unittest.TestCase):
         cls.client.close()
 
     def test_service_port_accessibility_and_session_creation_and_expiration(self):
-        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret'}, timeout=1)
+        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret_https'}, timeout=1)
         self.assertEqual(response.status_code, 503)
         
         # Check the session_cache.json file inside the container with retries
@@ -82,7 +87,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
 
     def test_invalid_app_name(self):
-        response = requests.post('http://localhost:8080', data={'app': 'invalidapp', 'access_key': 'test_secret'}, timeout=1)
+        response = requests.post('http://localhost:8080', data={'app': 'invalidapp', 'access_key': 'test_secret_https'}, timeout=1)
         self.assertEqual(response.status_code, 503)
 
     def test_missing_data(self):

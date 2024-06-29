@@ -1,12 +1,10 @@
 
-https_port: 8443
-
 test_app:
   port: 9999
   access_key_http: test_secret_http
   access_key_https: test_secret_https
   destination: local
   protocol: tcp
-  duration: 10
+  duration: 60
   interface: eth0
 

@@ -73,7 +73,11 @@ def handle_request(config, sessions, lock, test_mode, session_file, port_to_open
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
     log(f"Client IP: {client_ip}")
     if app_name in config and config[app_name][f'access_key_{access_key_type}'] == access_key:
-        duration = config[app_name]['duration']
+        if access_key_type == "http":
+            log(f"opening http port {port_to_open} for {client_ip} for 10s")
+            duration = 30
+        else:
+            duration = config[app_name]['duration']
         protocol = config[app_name]['protocol']
         interface = config[app_name]['interface']
         if args.routing_type == 'iptables':
@@ -131,7 +135,7 @@ def create_app(config_path, session_file, test_mode):
             log("Aborting GET request with 404")
             abort(404)
         elif request.method == 'POST':
-            return handle_request(config, sessions, lock, test_mode, session_file, config['https_port'], 'http')
+            return handle_request(config, sessions, lock, test_mode, session_file, args.https_port, 'http')
 
     @app.route('/secure', methods=['POST'])
     def handle_https_request():
@@ -141,7 +145,7 @@ def create_app(config_path, session_file, test_mode):
     app.config['sessions'] = sessions
     return app
 
-def delete_nftables_rule(command, test_mode):
+def delete_nftables_rule(command, test_mode=False):
     # with nftables you can't just replace 'add' with 'del' like it's done with iptables, it's much more complicated , you need to list all the rules of a table, find the one to delete, take the handle number and then delete that handle. Insane.
     # nft delete rule ip vyos_filter NAME_IN-OpenVPN-KnockPort handle $(nft -a list table ip vyos_filter | grep "ipv4-NAM-IN-OpenVPN-KnockPort-tmp-127.0.0.1" | grep "handle" | awk '{print $NF}')
     # Regex pattern to capture the 5th word, 6th word, and the last quoted word
@@ -218,19 +222,26 @@ def execute_command(command, print_command=True):
         log(f"Executing command: {command}")
     log(str(bash('-c', command, _tty_out=True)))
 
-def setup_stealthy_ports(http_port, https_port):
-    log("Allow incoming packets to HTTP port")
-    execute_command(f"iptables -n -v -L | grep dpt:{http_port} | grep ACCEPT || iptables -A INPUT -p tcp --dport {http_port} -j ACCEPT")
-    log("Drop outgoing traffic from KnockPort from HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a response from HTTP port")
-    execute_command(f"iptables -n -v -L | grep spt:{http_port} | grep ACCEPT | grep flags:0x3F/0x12 || iptables -A OUTPUT -p tcp --sport {http_port} --tcp-flags ALL SYN,ACK -j ACCEPT")
-    execute_command(f"iptables -n -v -L | grep spt:{http_port} | grep DROP || iptables -A OUTPUT -p tcp --sport {http_port} -j DROP")
-    log("Drop incoming packets to HTTPS port. Per IP allow rules will be created on request to HTTP port")
-    execute_command(f"iptables -n -v -L | grep dpt:{https_port} | grep DROP || iptables -A INPUT -p tcp --dport {https_port} -j DROP")
+def setup_stealthy_ports(stealthy_ports_commands):
+    for stealthy_ports_command in stealthy_ports_commands:
+        execute_command(f"{stealthy_ports_command['existence_pattern']} || {stealthy_ports_command['command']}" , print_command=stealthy_ports_command['print_command'])
 
-def signal_handler(sig, frame, sessions, config, test_mode):
+def unset_stealthy_ports(stealthy_ports_commands):
+    for stealthy_ports_command in stealthy_ports_commands:
+        if stealthy_ports_command['existence_pattern'] != "false":
+            command = stealthy_ports_command['command']
+            if args.routing_type == 'iptables':
+                command = command.replace('-A', '-D')
+                command = command.replace('-I', '-D')
+                execute_command(f"{command} ; true" , print_command=stealthy_ports_command['print_command'])
+            elif args.routing_type == 'nftables':
+                delete_nftables_rule(command)
+
+def signal_handler(sig, frame, sessions, config, test_mode, stealthy_ports_commands):
     log("Server is shutting down...")
     cleanup_iptables(sessions, test_mode)
     cleanup_dnat_snat_rules(config, test_mode)
+    unset_stealthy_ports(stealthy_ports_commands)
     sys.exit(0)
 
 if __name__ == '__main__':
@@ -269,14 +280,31 @@ if __name__ == '__main__':
     apply_dnat_snat_rules(app.config['config'], args.test)
     
     # Set up iptables rules for stealthy HTTP server
+    stealthy_ports_commands = []
     if args.routing_type == 'iptables':
-        setup_stealthy_ports(args.http_port, args.https_port)
+        stealthy_ports_commands = [
+            {"existence_pattern": "false", "command": "echo Allow incoming packets to HTTP port", "print_command": False},
+            {"existence_pattern": f"iptables -n -v -L | grep dpt:{args.http_port} | grep ACCEPT",
+                "command": f"iptables -A INPUT -p tcp --dport {args.http_port} -j ACCEPT", "print_command": True},
+            {"existence_pattern": "false", "command": "echo Drop outgoing traffic from KnockPort from HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a response from HTTP port", "print_command": False},
+            {"existence_pattern": f"iptables -n -v -L | grep spt:{args.http_port} | grep ACCEPT | grep flags:0x3F/0x12",
+                "command": f"iptables -A OUTPUT -p tcp --sport {args.http_port} --tcp-flags ALL SYN,ACK -j ACCEPT", "print_command": True},
+            {"existence_pattern": f"iptables -n -v -L | grep spt:{args.http_port} | grep DROP",
+                "command": f"iptables -A OUTPUT -p tcp --sport {args.http_port} -j DROP", "print_command": True},
+            {"existence_pattern": "false", "command": "echo Drop incoming packets to HTTPS port. Per IP allow rules will be created on request to HTTP port", "print_command": False},
+            {"existence_pattern": f"iptables -n -v -L | grep dpt:{args.https_port} | grep DROP",
+                "command": f"iptables -A INPUT -p tcp --dport {args.https_port} -j DROP", "print_command": True}
+        ]
+        setup_stealthy_ports(stealthy_ports_commands)
+    elif args.routing_type == 'nftables':
+        log("TODO: add stealthy_ports_commands for nftables")
+        sys.exit(0)
 
     log(f"HTTP Server is starting on 0.0.0.0:{args.http_port}...")
     log(f"HTTPS Server is starting on 0.0.0.0:{args.https_port}...")
     
-    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
-    signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test))
+    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test, stealthy_ports_commands))
+    signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test, stealthy_ports_commands))
     
     from threading import Thread
     
