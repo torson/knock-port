@@ -76,24 +76,49 @@ def create_app(config_path, session_file, test_mode):
     session_manager.start()
 
     @app.route('/', methods=['GET', 'POST'])
-    def handle_request():
-        log(f"Received {request.method} request from {request.remote_addr}")
+    def handle_http_request():
+        log(f"Received HTTP {request.method} request from {request.remote_addr}")
         if request.method == 'GET':
             log("Aborting GET request with 404")
             abort(404)
         elif request.method == 'POST':
-            log("Processing POST request")
-            data = request.form
-            log(f"Received data: {dict(data)}")
+            log("Processing HTTP POST request")
+            client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+            log(f"Client IP: {client_ip}")
+            # Open HTTPS port for the client IP for 10 seconds
+            https_port = config['https_port']
+            duration = 10
+            if args.routing_type == 'iptables':
+                command = f"iptables -I INPUT -p tcp -s {client_ip} --dport {https_port} -j ACCEPT"
+            elif args.routing_type == 'nftables':
+                command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 tcp dport {https_port} ip saddr {client_ip} counter accept comment 'ipv4-IN-KnockPort-tmp-HTTPS-{https_port}-{client_ip}'"
             try:
-                app_name = data['app']
-                access_key = data['access_key']
-            except KeyError as e:
-                log_err(f"KeyError: {e}")
-                log_err("Invalid data format received")
-                abort(503)
-        log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
+                if test_mode:
+                    log(f"Mock command: {command}")
+                else:
+                    log(f"Executing command: {command}")
+                    log(str(bash('-c', command, _tty_out=True)))
+                with lock:
+                    sessions.append({'command': command, 'expires_at': time.time() + duration})
+                    with open(session_file, 'w') as f:
+                        json.dump(sessions, f)
+            except Exception as e:
+                log_err(f"Error during operations: {e}")
+        abort(503)
 
+    @app.route('/secure', methods=['POST'])
+    def handle_https_request():
+        log(f"Received HTTPS POST request from {request.remote_addr}")
+        data = request.form
+        log(f"Received data: {dict(data)}")
+        try:
+            app_name = data['app']
+            access_key = data['access_key']
+        except KeyError as e:
+            log_err(f"KeyError: {e}")
+            log_err("Invalid data format received")
+            abort(503)
+        log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
         client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         log(f"Client IP: {client_ip}")
         if app_name in config and config[app_name]['access_key'] == access_key:
