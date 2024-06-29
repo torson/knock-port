@@ -33,18 +33,33 @@ run_command() {
 
 VERBOSE=true
 
+if [ ! -f knock-port.testing.pem ] ; then
+    log "generating testing certificate"
+    echo "
+
+
+    Testing
+
+    knock-port.testing
+
+    " | openssl req -x509 -newkey rsa:1024 -keyout knock-port.testing.key -out knock-port.testing.pem -days 3650 -nodes
+fi
+
 # Build the Docker image
-run_command docker build -t port-knock-server .
+CWD=$(pwd)
+cd ..
+run_command docker build -f tests/Dockerfile -t port-knock-server .
 
 # Stop and remove the Docker container
-run_command docker stop -t 1 port-knock-server
-run_command docker rm port-knock-server
+docker stop -t 1 port-knock-server
+docker rm port-knock-server
 
 # Get the test_app port from config.test.yaml
-TEST_APP_PORT=$(grep port config.test.yaml | awk '{print $2}')
+TEST_APP_PORT=$(grep port tests/config.test.yaml | awk '{print $2}')
 
 # Run the server in a Docker container using host network
 run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p 8080:8080 -p ${TEST_APP_PORT}:${TEST_APP_PORT} --name port-knock-server port-knock-server python -m http.server ${TEST_APP_PORT}
+cd ${CWD}
 
 ### installing requirements
 log "docker exec port-knock-server bash -c \
@@ -55,15 +70,15 @@ docker exec port-knock-server bash -c \
 ### testing --routing-type iptables
 # Add a default drop rule for the test_app port
 log docker exec port-knock-server bash -c \
-    'python server.py -c config.test.yaml --routing-type iptables --port 8080'
+    'python src/server.py -c tests/config.test.yaml --routing-type iptables --port 8080 > run_docker_tests.server.iptables.log 2>&1 &'
 docker exec port-knock-server bash -c \
-    'python server.py -c config.test.yaml --routing-type iptables --port 8080 > run_docker_tests.server.iptables.log 2>&1 &'
+    'python src/server.py -c tests/config.test.yaml --routing-type iptables --port 8080 > run_docker_tests.server.iptables.log 2>&1 &'
 sleep 3
 
 run_command docker exec port-knock-server iptables -A INPUT -p tcp --dport ${TEST_APP_PORT} -j DROP
 
 # Run the tests
-run_command python test_server.py
+run_command python tests.py
 
 # deleting iptables rule because it is set also as nftables rule
 #     $ nft -a list ruleset
@@ -84,9 +99,9 @@ docker exec port-knock-server bash -c \
 
 ### testing --routing-type nftables
 log docker exec port-knock-server bash -c \
-    'python server.py -c config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --port 8080'
+    'python src/server.py -c tests/config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --port 8080 > run_docker_tests.server.nftables.log 2>&1 &'
 docker exec port-knock-server bash -c \
-    'python server.py -c config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --port 8080 > run_docker_tests.server.nftables.log 2>&1 &'
+    'python src/server.py -c tests/config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --port 8080 > run_docker_tests.server.nftables.log 2>&1 &'
 sleep 3
 
 # Create nftables table and chain
@@ -101,7 +116,7 @@ run_command docker exec port-knock-server \
     nft add rule ip filter INPUT tcp dport ${TEST_APP_PORT} drop
 
 # Run the tests
-run_command python test_server.py
+run_command python tests.py
 
 log docker exec port-knock-server bash -c \
     'killall python'

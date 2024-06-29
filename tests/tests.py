@@ -18,20 +18,11 @@ class TestServer(unittest.TestCase):
         cls.client = docker.from_env()
         cls.container = cls.client.containers.get('port-knock-server')
         
-        # Create nftables table and chain
-        cls.container.exec_run('nft add table ip input_test')
-        # setting default to drop
-        cls.container.exec_run("nft add chain ip input_test in-knock-port '{ type filter hook input priority filter; policy allow; }'")
-        
         # Set default policies
         with open('config.test.yaml', 'r') as config_file:
             config = yaml.safe_load(config_file)
         cls.test_app_port = config['test_app']['port']
         
-        print("nftables table and chain created")
-        print("Container logs:")
-        print(cls.container.logs().decode('utf-8'))
-
     @classmethod
     def tearDownClass(cls):
         cls.client.close()
