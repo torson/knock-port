@@ -12,11 +12,6 @@ import subprocess
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
-## testing curl commands
-#  > 2 different requests need to be made one after another
-# curl -d 'app=test_app&access_key=test_secret_http' http://localhost:8080 -v
-# curl -d 'app=test_app&access_key=test_secret_https' https://localhost:8443/secure -v -k
-
 class TestServer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -27,16 +22,28 @@ class TestServer(unittest.TestCase):
         with open('config.test.yaml', 'r') as config_file:
             config = yaml.safe_load(config_file)
         cls.test_app_port = config['test_app']['port']
+        cls.http_port = 8080
+        cls.https_port = 8443
         
     @classmethod
     def tearDownClass(cls):
         cls.client.close()
 
-    def test_service_port_accessibility_and_session_creation_and_expiration(self):
-        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'test_secret_https'}, timeout=1)
-        self.assertEqual(response.status_code, 503)
+    def test_two_phase_process(self):
+        # Phase 1: HTTP request (should timeout)
+        with self.assertRaises(requests.exceptions.Timeout):
+            requests.post(f'http://localhost:{self.http_port}', 
+                          data={'app': 'test_app', 'access_key': 'test_secret_http'}, 
+                          timeout=1)
         
-        # Check the session_cache.json file inside the container with retries
+        # Phase 2: HTTPS request
+        response = requests.post(f'https://localhost:{self.https_port}/secure', 
+                                 data={'app': 'test_app', 'access_key': 'test_secret_https'}, 
+                                 verify=False,  # Disable SSL verification for testing
+                                 timeout=5)
+        self.assertEqual(response.status_code, 503)  # Expecting 503 as per the server logic
+        
+        # Check the session_cache.json file inside the container
         max_retries = 10
         retry_delay = 1  # seconds
         for _ in range(max_retries):
@@ -48,9 +55,21 @@ class TestServer(unittest.TestCase):
         else:
             self.fail(f"Session not created after {max_retries} retries. Content: {sessions}")
         
-        # Test accessibility after knock
-        response = requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
-        self.assertEqual(response.status_code, 200, f"Port {self.test_app_port} should be accessible after knock")
+        # Test accessibility of the configured service port
+        response = requests.get(f'http://localhost:{self.test_app_port}', timeout=5)
+        self.assertEqual(response.status_code, 200, f"Port {self.test_app_port} should be accessible after the two-phase process")
+
+    def test_session_expiration(self):
+        # Perform the two-phase process
+        with self.assertRaises(requests.exceptions.Timeout):
+            requests.post(f'http://localhost:{self.http_port}', 
+                          data={'app': 'test_app', 'access_key': 'test_secret_http'}, 
+                          timeout=1)
+        
+        requests.post(f'https://localhost:{self.https_port}/secure', 
+                      data={'app': 'test_app', 'access_key': 'test_secret_https'}, 
+                      verify=False, 
+                      timeout=5)
 
         # Wait for the session to expire
         with open('config.test.yaml', 'r') as config_file:
@@ -76,26 +95,45 @@ class TestServer(unittest.TestCase):
 
     def test_default_drop(self):
         # Test that the port is not accessible by default
-        try:
+        with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
-            self.fail("Expected the request to fail, but it succeeded.")
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            pass  # This is the expected behavior
 
     def test_invalid_access_key(self):
-        response = requests.post('http://localhost:8080', data={'app': 'test_app', 'access_key': 'invalidkey'}, timeout=1)
+        with self.assertRaises(requests.exceptions.Timeout):
+            requests.post(f'http://localhost:{self.http_port}', 
+                          data={'app': 'test_app', 'access_key': 'invalidkey'}, 
+                          timeout=1)
+        
+        response = requests.post(f'https://localhost:{self.https_port}/secure', 
+                                 data={'app': 'test_app', 'access_key': 'invalidkey'}, 
+                                 verify=False, 
+                                 timeout=5)
         self.assertEqual(response.status_code, 503)
 
     def test_invalid_app_name(self):
-        response = requests.post('http://localhost:8080', data={'app': 'invalidapp', 'access_key': 'test_secret_https'}, timeout=1)
+        with self.assertRaises(requests.exceptions.Timeout):
+            requests.post(f'http://localhost:{self.http_port}', 
+                          data={'app': 'invalidapp', 'access_key': 'test_secret_http'}, 
+                          timeout=1)
+        
+        response = requests.post(f'https://localhost:{self.https_port}/secure', 
+                                 data={'app': 'invalidapp', 'access_key': 'test_secret_https'}, 
+                                 verify=False, 
+                                 timeout=5)
         self.assertEqual(response.status_code, 503)
 
     def test_missing_data(self):
-        response = requests.post('http://localhost:8080', data={}, timeout=1)
+        with self.assertRaises(requests.exceptions.Timeout):
+            requests.post(f'http://localhost:{self.http_port}', data={}, timeout=1)
+        
+        response = requests.post(f'https://localhost:{self.https_port}/secure', 
+                                 data={}, 
+                                 verify=False, 
+                                 timeout=5)
         self.assertEqual(response.status_code, 503)
 
     def test_get_request(self):
-        response = requests.get('http://localhost:8080', timeout=1)
+        response = requests.get(f'http://localhost:{self.http_port}', timeout=1)
         self.assertEqual(response.status_code, 404)
 
 if __name__ == "__main__":
