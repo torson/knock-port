@@ -237,15 +237,19 @@ def cleanup_dnat_snat_rules(config, test_mode):
                 log(f"Executing command: {snat_command}")
                 subprocess.run(snat_command.split(), check=True)
 
-def setup_stealthy_http(http_port):
-    # Allow incoming SYN packets
-    subprocess.run(["iptables", "-A", "INPUT", "-p", "tcp", "--dport", str(http_port), "--tcp-flags", "SYN,ACK", "SYN", "-j", "ACCEPT"])
-    
-    # Allow outgoing SYN-ACK packets for the initial handshake
-    subprocess.run(["iptables", "-A", "OUTPUT", "-p", "tcp", "--sport", str(http_port), "--tcp-flags", "SYN,ACK", "SYN,ACK", "-j", "ACCEPT"])
-    
-    # Drop all other outgoing packets from the HTTP port
-    subprocess.run(["iptables", "-A", "OUTPUT", "-p", "tcp", "--sport", str(http_port), "-j", "DROP"])
+def execute_command(command, print_command=True):
+    if print_command:
+        log(f"Executing command: {command}")
+    log(str(bash('-c', command, _tty_out=True)))
+
+def setup_stealthy_ports(http_port, https_port):
+    log("Allow incoming packets to HTTP port")
+    execute_command(f"iptables -n -v -L | grep dpt:{http_port} | grep ACCEPT || iptables -A INPUT -p tcp --dport {http_port} -j ACCEPT")
+    log("Drop outgoing traffic from KnockPort from HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a response from HTTP port")
+    execute_command(f"iptables -n -v -L | grep spt:{http_port} | grep ACCEPT | grep flags:0x3F/0x12 || iptables -A OUTPUT -p tcp --sport {http_port} --tcp-flags ALL SYN,ACK -j ACCEPT")
+    execute_command(f"iptables -n -v -L | grep spt:{http_port} | grep DROP || iptables -A OUTPUT -p tcp --sport {http_port} -j DROP")
+    log("Drop incoming packets to HTTPS port. Per IP allow rules will be created on request to HTTP port")
+    execute_command(f"iptables -n -v -L | grep dpt:{https_port} | grep DROP || iptables -A INPUT -p tcp --dport {https_port} -j DROP")
 
 def signal_handler(sig, frame, sessions, config, test_mode):
     log("Server is shutting down...")
@@ -271,14 +275,18 @@ if __name__ == '__main__':
 
     if args.routing_type == 'vyos':
         if not args.nftables_table:
+            # table vyos_filter is used on VyOs so we set it as default
             args.nftables_table = "vyos_filter"
         if not args.nftables_chain:
+            # chain VYOS_INPUT_filter is used on VyOs so we set it as default
             args.nftables_chain = "VYOS_INPUT_filter"
 
     if args.routing_type == 'nftables':
         if not args.nftables_table:
+            # table filter is used on Debian so we set it as default
             args.nftables_table = "filter"
         if not args.nftables_chain:
+            # chain INPUT is used on Debian so we set it as default
             args.nftables_chain = "INPUT"
 
     app = create_app(args.config, 'session_cache.json', args.test)
@@ -286,7 +294,7 @@ if __name__ == '__main__':
     
     # Set up iptables rules for stealthy HTTP server
     if args.routing_type == 'iptables':
-        setup_stealthy_http(args.http_port)
+        setup_stealthy_ports(args.http_port, args.https_port)
 
     log(f"HTTP Server is starting on 0.0.0.0:{args.http_port}...")
     log(f"HTTPS Server is starting on 0.0.0.0:{args.https_port}...")
