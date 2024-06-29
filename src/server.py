@@ -58,6 +58,55 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                     delete_nftables_rule(session['command'], test_mode)
         time.sleep(5)
 
+def handle_request(config, sessions, lock, test_mode, session_file, port_to_open, access_key_type):
+    log(f"Received request from {request.remote_addr}")
+    data = request.form
+    log(f"Received data: {dict(data)}")
+    try:
+        app_name = data['app']
+        access_key = data['access_key']
+    except KeyError as e:
+        log_err(f"KeyError: {e}")
+        log_err("Invalid data format received")
+        abort(503)
+    log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    log(f"Client IP: {client_ip}")
+    if app_name in config and config[app_name][f'access_key_{access_key_type}'] == access_key:
+        duration = config[app_name]['duration']
+        protocol = config[app_name]['protocol']
+        interface = config[app_name]['interface']
+        if args.routing_type == 'iptables':
+            command = f"iptables -I INPUT -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT"
+        elif args.routing_type == 'nftables':
+            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port_to_open}-{client_ip}'"
+        elif args.routing_type == 'vyos':
+            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port_to_open}-{client_ip}'"
+        session_exists = False
+        expires_at = time.time() + duration
+        for session in sessions:
+            if session['command'] == command:
+                log("Session is duplicate, updating 'expires_at'")
+                session['expires_at'] = expires_at
+                session_exists = True
+                break
+        if not session_exists:
+            try:
+                if test_mode:
+                    log(f"Mock command: {command}")
+                else:
+                    log(f"Executing command: {command}")
+                    log(str(bash('-c', command, _tty_out=True)))
+                with lock:
+                    sessions.append({'command': command, 'expires_at': expires_at})
+                    with open(session_file, 'w') as f:
+                        json.dump(sessions, f)
+            except Exception as e:
+                log_err(f"Error during operations: {e}")
+    else:
+        log_err(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
+    abort(503)
+
 def create_app(config_path, session_file, test_mode):
     config = load_config(config_path)
     sessions = []
@@ -82,85 +131,12 @@ def create_app(config_path, session_file, test_mode):
             log("Aborting GET request with 404")
             abort(404)
         elif request.method == 'POST':
-            log("Processing HTTP POST request")
-            client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-            log(f"Client IP: {client_ip}")
-            # Open HTTPS port for the client IP for 10 seconds
-            https_port = config['https_port']
-            duration = 10
-            if args.routing_type == 'iptables':
-                command = f"iptables -I INPUT -p tcp -s {client_ip} --dport {https_port} -j ACCEPT"
-            elif args.routing_type == 'nftables':
-                command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 tcp dport {https_port} ip saddr {client_ip} counter accept comment 'ipv4-IN-KnockPort-tmp-HTTPS-{https_port}-{client_ip}'"
-            try:
-                if test_mode:
-                    log(f"Mock command: {command}")
-                else:
-                    log(f"Executing command: {command}")
-                    log(str(bash('-c', command, _tty_out=True)))
-                with lock:
-                    sessions.append({'command': command, 'expires_at': time.time() + duration})
-                    with open(session_file, 'w') as f:
-                        json.dump(sessions, f)
-            except Exception as e:
-                log_err(f"Error during operations: {e}")
-        abort(503)
+            return handle_request(config, sessions, lock, test_mode, session_file, config['https_port'], 'http')
 
     @app.route('/secure', methods=['POST'])
     def handle_https_request():
-        log(f"Received HTTPS POST request from {request.remote_addr}")
-        data = request.form
-        log(f"Received data: {dict(data)}")
-        try:
-            app_name = data['app']
-            access_key = data['access_key']
-        except KeyError as e:
-            log_err(f"KeyError: {e}")
-            log_err("Invalid data format received")
-            abort(503)
-        log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
-        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-        log(f"Client IP: {client_ip}")
-        if app_name in config and config[app_name]['access_key'] == access_key:
-            port = config[app_name]['port']
-            destination = config[app_name]['destination']
-            duration = config[app_name]['duration']
-            protocol = config[app_name]['protocol']
-            interface = config[app_name]['interface']
-            if destination == "local":
-                if args.routing_type == 'iptables':
-                    command = f"iptables -I INPUT -p {protocol} -s {client_ip} --dport {port} -j ACCEPT"
-                elif args.routing_type == 'nftables':
-                    command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
-                elif args.routing_type == 'vyos':
-                    command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 {protocol} dport {port} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port}-{client_ip}'"
-            else:
-                if args.routing_type == 'iptables':
-                    command = f"iptables -I FORWARD -p {protocol} -s {client_ip} -d {destination} --dport {port} -j ACCEPT"
-            session_exists = False
-            expires_at = time.time() + duration
-            for session in sessions:
-                if session['command'] == command:
-                    log("Session is duplicate, updating 'expires_at'")
-                    session['expires_at'] = expires_at
-                    session_exists = True
-                    break
-            if not session_exists:
-                try:
-                    if test_mode:
-                        log(f"Mock command: {command}")
-                    else:
-                        log(f"Executing command: {command}")
-                        log(str(bash('-c', command, _tty_out=True)))
-                    with lock:
-                        sessions.append({'command': command, 'expires_at': expires_at})
-                        with open(session_file, 'w') as f:
-                            json.dump(sessions, f)
-                except Exception as e:
-                    log_err(f"Error during operations: {e}")
-        else:
-            log_err(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
-        abort(503)
+        return handle_request(config, sessions, lock, test_mode, session_file, config[request.form['app']]['port'], 'https')
+
     app.config['config'] = config
     app.config['sessions'] = sessions
     return app
