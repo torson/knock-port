@@ -7,6 +7,7 @@ from flask import Flask, request, abort
 from threading import Thread, Lock
 import json
 import subprocess
+import os
 from subprocess import Popen, PIPE
 import re
 import os
@@ -42,6 +43,8 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                 sessions.remove(session)
                 with open(session_file, 'w') as f:
                     json.dump(sessions, f)
+                    f.flush()
+                    os.fsync(f.fileno())
                 if args.routing_type == 'iptables':
                     command = session['command'].replace('-I', '-D')
                     if test_mode:
