@@ -11,6 +11,11 @@ from time import sleep
 import subprocess
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+import urllib3
+import warnings
+
+# Suppress InsecureRequestWarning
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 ## testing curl commands
 #  > 2 different requests need to be made one after another
