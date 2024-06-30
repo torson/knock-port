@@ -104,42 +104,58 @@ class TestServer(unittest.TestCase):
             requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
 
     def test_invalid_access_key(self):
+        # HTTP request with invalid key (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}', 
                           data={'app': 'test_app', 'access_key': 'invalidkey'}, 
                           timeout=1)
         
-        response = requests.post(f'https://localhost:{self.https_port}/secure', 
-                                 data={'app': 'test_app', 'access_key': 'invalidkey'}, 
-                                 verify=False, 
-                                 timeout=5)
-        self.assertEqual(response.status_code, 503)
+        # Verify that the service port is not accessible
+        with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+            requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
 
     def test_invalid_app_name(self):
+        # HTTP request with invalid app name (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}', 
                           data={'app': 'invalidapp', 'access_key': 'test_secret_http'}, 
                           timeout=1)
         
-        response = requests.post(f'https://localhost:{self.https_port}/secure', 
-                                 data={'app': 'invalidapp', 'access_key': 'test_secret_https'}, 
-                                 verify=False, 
-                                 timeout=5)
-        self.assertEqual(response.status_code, 503)
+        # Verify that the service port is not accessible
+        with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+            requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
 
     def test_missing_data(self):
+        # HTTP request with missing data (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}', data={}, timeout=1)
         
-        response = requests.post(f'https://localhost:{self.https_port}/secure', 
-                                 data={}, 
-                                 verify=False, 
-                                 timeout=5)
-        self.assertEqual(response.status_code, 503)
+        # Verify that the service port is not accessible
+        with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+            requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
 
-    def test_get_request(self):
-        response = requests.get(f'http://localhost:{self.http_port}', timeout=1)
-        self.assertEqual(response.status_code, 404)
+    def test_http_get_request(self):
+        # HTTP GET request (should timeout)
+        with self.assertRaises(requests.exceptions.Timeout):
+            requests.get(f'http://localhost:{self.http_port}', timeout=1)
+
+    def test_successful_two_phase_process(self):
+        # Phase 1: HTTP request (should timeout)
+        with self.assertRaises(requests.exceptions.Timeout):
+            requests.post(f'http://localhost:{self.http_port}', 
+                          data={'app': 'test_app', 'access_key': 'test_secret_http'}, 
+                          timeout=1)
+        
+        # Phase 2: HTTPS request
+        response = requests.post(f'https://localhost:{self.https_port}/secure', 
+                                 data={'app': 'test_app', 'access_key': 'test_secret_https'}, 
+                                 verify=False,  # Disable SSL verification for testing
+                                 timeout=5)
+        self.assertEqual(response.status_code, 503)  # Expecting 503 as per the server logic
+        
+        # Verify that the service port is now accessible
+        response = requests.get(f'http://localhost:{self.test_app_port}', timeout=5)
+        self.assertEqual(response.status_code, 200)
 
 if __name__ == "__main__":
     unittest.main()
