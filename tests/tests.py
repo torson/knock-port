@@ -110,6 +110,13 @@ class TestServer(unittest.TestCase):
                           data={'app': 'test_app', 'access_key': 'invalidkey'}, 
                           timeout=1)
         
+        # Verify that the HTTPS port is not accessible
+        with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+            requests.post(f'https://localhost:{self.https_port}/secure', 
+                          data={'app': 'test_app', 'access_key': 'test_secret_https'}, 
+                          verify=False, 
+                          timeout=1)
+        
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
@@ -121,6 +128,13 @@ class TestServer(unittest.TestCase):
                           data={'app': 'invalidapp', 'access_key': 'test_secret_http'}, 
                           timeout=1)
         
+        # Verify that the HTTPS port is not accessible
+        with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+            requests.post(f'https://localhost:{self.https_port}/secure', 
+                          data={'app': 'test_app', 'access_key': 'test_secret_https'}, 
+                          verify=False, 
+                          timeout=1)
+        
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
@@ -129,6 +143,13 @@ class TestServer(unittest.TestCase):
         # HTTP request with missing data (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}', data={}, timeout=1)
+        
+        # Verify that the HTTPS port is not accessible
+        with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+            requests.post(f'https://localhost:{self.https_port}/secure', 
+                          data={'app': 'test_app', 'access_key': 'test_secret_https'}, 
+                          verify=False, 
+                          timeout=1)
         
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
@@ -139,6 +160,41 @@ class TestServer(unittest.TestCase):
         with self.assertRaises(requests.exceptions.Timeout):
             requests.get(f'http://localhost:{self.http_port}', timeout=1)
 
+    def test_valid_http_invalid_https(self):
+        # Valid HTTP request (should timeout)
+        with self.assertRaises(requests.exceptions.Timeout):
+            requests.post(f'http://localhost:{self.http_port}', 
+                          data={'app': 'test_app', 'access_key': 'test_secret_http'}, 
+                          timeout=1)
+        
+        # Invalid HTTPS request (invalid app_name)
+        response = requests.post(f'https://localhost:{self.https_port}/secure', 
+                                 data={'app': 'invalid_app', 'access_key': 'test_secret_https'}, 
+                                 verify=False, 
+                                 timeout=5)
+        self.assertEqual(response.status_code, 503)
+        
+        # Verify that the service port is not accessible
+        with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+            requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
+
+    def test_valid_http_invalid_https_key(self):
+        # Valid HTTP request (should timeout)
+        with self.assertRaises(requests.exceptions.Timeout):
+            requests.post(f'http://localhost:{self.http_port}', 
+                          data={'app': 'test_app', 'access_key': 'test_secret_http'}, 
+                          timeout=1)
+        
+        # Invalid HTTPS request (invalid access_key)
+        response = requests.post(f'https://localhost:{self.https_port}/secure', 
+                                 data={'app': 'test_app', 'access_key': 'invalid_key'}, 
+                                 verify=False, 
+                                 timeout=5)
+        self.assertEqual(response.status_code, 503)
+        
+        # Verify that the service port is not accessible
+        with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+            requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
 
 if __name__ == "__main__":
     unittest.main()
