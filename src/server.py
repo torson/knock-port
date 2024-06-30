@@ -75,7 +75,7 @@ def handle_request(config, sessions, lock, test_mode, session_file, port_to_open
     if app_name in config and config[app_name][f'access_key_{access_key_type}'] == access_key:
         if access_key_type == "http":
             log(f"opening http port {port_to_open} for {client_ip} for 10s")
-            duration = 30
+            duration = 10
         else:
             duration = config[app_name]['duration']
         protocol = config[app_name]['protocol']

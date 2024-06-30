@@ -64,6 +64,19 @@ class TestServer(unittest.TestCase):
         response = requests.get(f'http://localhost:{self.test_app_port}', timeout=5)
         self.assertEqual(response.status_code, 200, f"Port {self.test_app_port} should be accessible after the two-phase process")
 
+        # Wait for the session to expire for the other tests to get clean environment
+        with open('config.test.yaml', 'r') as config_file:
+            config = yaml.safe_load(config_file)
+        max_wait_time = config['test_app']['duration'] + 5
+        start_time = time.time()
+        
+        while time.time() - start_time < max_wait_time:
+            exec_result = self.container.exec_run('cat session_cache.json')
+            sessions = exec_result.output.decode('utf-8')
+            if sessions.strip() == '[]':
+                break
+            time.sleep(1)
+
     def test_session_expiration(self):
         # Perform the two-phase process
         with self.assertRaises(requests.exceptions.Timeout):
@@ -160,7 +173,7 @@ class TestServer(unittest.TestCase):
         with self.assertRaises(requests.exceptions.Timeout):
             requests.get(f'http://localhost:{self.http_port}', timeout=1)
 
-    def test_valid_http_invalid_https(self):
+    def test_valid_http_invalid_https_app_name(self):
         # Valid HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}', 
@@ -178,7 +191,7 @@ class TestServer(unittest.TestCase):
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
 
-    def test_valid_http_invalid_https_key(self):
+    def test_valid_http_invalid_https_access_key(self):
         # Valid HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}', 
