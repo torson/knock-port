@@ -139,7 +139,11 @@ def create_app(config_path, session_file, test_mode):
 
     @app.route('/secure', methods=['POST'])
     def handle_https_request():
-        return handle_request(config, sessions, lock, test_mode, session_file, config[request.form['app']]['port'], 'https')
+        app_name = request.form.get('app')
+        if app_name not in config:
+            log_err(f"Invalid app name: {app_name}")
+            abort(503)
+        return handle_request(config, sessions, lock, test_mode, session_file, config[app_name]['port'], 'https')
 
     app.config['config'] = config
     app.config['sessions'] = sessions
