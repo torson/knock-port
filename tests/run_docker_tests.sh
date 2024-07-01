@@ -63,7 +63,6 @@ KNOCKPORT_PORT_HTTPS=8443
 run_command docker run -d --cap-add=NET_ADMIN -v $(pwd):/app -p ${KNOCKPORT_PORT_HTTP}:${KNOCKPORT_PORT_HTTP} -p ${KNOCKPORT_PORT_HTTPS}:${KNOCKPORT_PORT_HTTPS} -p ${TEST_SERVICE_PORT}:${TEST_SERVICE_PORT} --name port-knock-server port-knock-server python -m http.server ${TEST_SERVICE_PORT}
 cd ${CWD}
 
-exit
 
 ### installing requirements
 log "docker exec port-knock-server bash -c \
@@ -98,6 +97,8 @@ run_command python tests.py
 #         }
 #     }
 
+exit
+
 run_command docker exec port-knock-server \
     iptables -D INPUT -p tcp --dport ${TEST_SERVICE_PORT} -j DROP
 
@@ -107,6 +108,9 @@ docker exec port-knock-server bash -c \
     'killall python'
 
 ### testing --routing-type nftables
+#   Docs:
+#     https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/configuring_and_managing_networking/getting-started-with-nftables_configuring-and-managing-networking
+#     https://unix.stackexchange.com/questions/753858/nftables-deleting-a-rule-without-passing-handle-similar-to-iptables-delete
 log docker exec port-knock-server bash -c \
     'python src/server.py -c tests/config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --port '${KNOCKPORT_PORT_HTTP}' > tests/run_docker_tests.server.nftables.log 2>&1 &'
 docker exec port-knock-server bash -c \
@@ -131,6 +135,31 @@ log docker exec port-knock-server bash -c \
     'killall python'
 docker exec port-knock-server bash -c \
     'killall python'
+
+
+
+### testing --routing-type vyos
+
+export VYOS_ROLLING_VERSION=1.5-rolling-202405260021
+bash create_vyos_docker_image.sh
+
+if ! docker ps | grep vyos; then
+    docker run -d --rm --name vyos --privileged -v /lib/modules:/lib/modules vyos:${VYOS_ROLLING_VERSION} /sbin/init
+fi
+# docker exec -ti vyos su - vyos
+
+set firewall ipv4 name IN-KnockPort default-action 'accept'
+set firewall ipv4 input filter rule 20 action jump
+set firewall ipv4 input filter rule 20 jump-target IN-KnockPort
+
+
+log docker exec port-knock-server bash -c \
+    'python src/server.py -c tests/config.test.yaml --routing-type vyos --nftables-table vyos_filter --nftables-chain IN-KnockPort --port '${KNOCKPORT_PORT_HTTP}' > tests/run_docker_tests.server.vyos.log 2>&1 &'
+docker exec port-knock-server bash -c \
+    'python src/server.py -c tests/config.test.yaml --routing-type vyos --nftables-table vyos_filter --nftables-chain IN-KnockPort --port '${KNOCKPORT_PORT_HTTP}' > tests/run_docker_tests.server.vyos.log 2>&1 &'
+sleep 3
+
+
 
 # Stop and remove the Docker container
 run_command docker stop -t 1 port-knock-server

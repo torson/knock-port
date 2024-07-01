@@ -5,6 +5,6 @@ test_app:
   access_key_https: test_secret_https
   destination: local
   protocol: tcp
-  duration: 60
+  duration: 10
   interface: eth0
 

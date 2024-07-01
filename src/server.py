@@ -59,7 +59,7 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                     delete_nftables_rule(session['command'], test_mode)
                 elif args.routing_type == 'vyos':
                     delete_nftables_rule(session['command'], test_mode)
-        time.sleep(5)
+        time.sleep(1)
 
 def handle_request(config, sessions, lock, test_mode, session_file, port_to_open, access_key_type):
     log(f"Received request from {request.remote_addr}")
@@ -108,6 +108,8 @@ def handle_request(config, sessions, lock, test_mode, session_file, port_to_open
                     sessions.append({'command': command, 'expires_at': expires_at})
                     with open(session_file, 'w') as f:
                         json.dump(sessions, f)
+                        f.flush()
+                        os.fsync(f.fileno())
             except Exception as e:
                 log_err(f"Error during operations: {e}")
     else:
@@ -152,42 +154,100 @@ def create_app(config_path, session_file, test_mode):
     app.config['sessions'] = sessions
     return app
 
-def delete_nftables_rule(command, test_mode=False):
-    # with nftables you can't just replace 'add' with 'del' like it's done with iptables, it's much more complicated , you need to list all the rules of a table, find the one to delete, take the handle number and then delete that handle. Insane.
-    # nft delete rule ip vyos_filter NAME_IN-OpenVPN-KnockPort handle $(nft -a list table ip vyos_filter | grep "ipv4-NAM-IN-OpenVPN-KnockPort-tmp-127.0.0.1" | grep "handle" | awk '{print $NF}')
-    # Regex pattern to capture the 5th word, 6th word, and the last quoted word
+
+def iptables_rule_exists(command, output=False):
+    pattern = r'^\S+\s+\S+\s+(\S+)\s+.*comment\s\'([^\']+)\''
+    match = re.search(pattern, command)
+    if match:
+        table = match.group(1)
+        comment = match.group(2)
+        command_rules_list = f"iptables -n -v -L {table}"
+        try:
+            command = f"{command_rules_list} | grep {comment} ; true"
+            # log(f"Executing command: {command}")
+            rule = bash('-c', command, _tty_out=True).strip()
+            if rule:
+                if output:
+                    log(f"Rule already exists : {rule}")
+                return True
+            else:
+                return False
+        except Exception as e:
+            log_err(f"Error during operations: {e}")
+    else:
+        log_err(f"iptables : regex parsing of command failed : {command}")
+
+def add_iptables_rule(command):
+    if not iptables_rule_exists(command, True):
+        execute_command(command)
+
+def delete_iptables_rule(command, test_mode=False):
+    if iptables_rule_exists(command):
+        command = command.replace(' -A ', ' -D ')
+        command = command.replace(' -I ', ' -D ')
+        execute_command(command)
+
+def nftables_rule_exists(command, output=False):
     pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+).*comment\s\'([^\']+)\''
     match = re.search(pattern, command)
     if match:
         table = match.group(1)
         chain = match.group(2)
         comment = match.group(3)
-        command_nft_list = f"nft -a list table ip {table}"
-        command_nft_delete = f"nft delete rule ip {table} {chain} handle"
-        if test_mode:
-            log(f"Mock command: {command_nft_list} ... parsing")
-            log(f"Mock command: {command_nft_delete} HANDLE_NUM")
-        else:
-            try:
-                command = f"{command_nft_list} | grep {comment} | grep 'handle'" + " | awk '{print $NF}'"
-                log(f"Executing command: {command}")
-                handle = bash('-c', command, _tty_out=True)
-                handle = handle.strip()
-                if handle:
-                    log(f"Executing command: {command_nft_delete} {handle}")
-                    output = bash('-c', f"{command_nft_delete} {handle}")
-                    log(f"Delete operation successful: {output}")
-                else:
-                    log_err("No valid handle found.")
-            except Exception as e:
-                log_err(f"Error during operations: {e}")
+        command_nft_list = f"nft -a list chain ip {table} {chain}"
+        try:
+            command = f"{command_nft_list} | grep {comment} | grep handle ; true"
+            # log(f"Executing command: {command}")
+            rule = bash('-c', command, _tty_out=True).strip()
+            if rule:
+                if output:
+                    log(f"Rule already exists : {rule}")
+                return True
+            else:
+                return False
+        except Exception as e:
+            log_err(f"Error during operations: {e}")
     else:
-        log_err(f"nftables : No match found with '{command_nft_list}' for : {command}")
+        log_err(f"nftables : regex parsing of command failed : {command}")
 
-def cleanup_iptables(sessions, test_mode):
+def add_firewall_rule(command):
+    if not nftables_rule_exists(command, True):
+        execute_command(f"{command}")
+
+def delete_nftables_rule(command, test_mode=False):
+    if nftables_rule_exists(command):
+        # with nftables you can't just replace 'add' with 'del' like it's done with iptables, it's much more complicated , you need to list all the rules of a table, find the one to delete, take the handle number and then delete that handle. Insane.
+        # nft delete rule ip vyos_filter NAME_IN-OpenVPN-KnockPort handle $(nft -a list table ip vyos_filter | grep "ipv4-NAM-IN-OpenVPN-KnockPort-tmp-127.0.0.1" | grep "handle" | awk '{print $NF}')
+        # Regex pattern to capture the 5th word, 6th word, and the last quoted word
+        pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+).*comment\s\'([^\']+)\''
+        match = re.search(pattern, command)
+        if match:
+            table = match.group(1)
+            chain = match.group(2)
+            comment = match.group(3)
+            command_nft_list = f"nft -a list table ip {table}"
+            command_nft_delete = f"nft delete rule ip {table} {chain} handle"
+            if test_mode:
+                log(f"Mock command: {command_nft_list} ... parsing")
+                log(f"Mock command: {command_nft_delete} HANDLE_NUM")
+            else:
+                try:
+                    command = f"{command_nft_list} | grep {comment} | grep handle" + " | awk '{print $NF}'"
+                    log(f"Executing command: {command}")
+                    handle = bash('-c', command, _tty_out=True).strip()
+                    if handle:
+                        execute_command(f"{command_nft_delete} {handle}")
+                    else:
+                        log_err("No valid handle found.")
+                except Exception as e:
+                    log_err(f"Error during operations: {e}")
+        else:
+            log_err(f"nftables : No rule match found for : {command}")
+
+def cleanup_firewall(sessions, test_mode):
     for session in sessions:
         if args.routing_type == 'iptables':
-            command = session['command'].replace('-A', '-D')
+            command = session['command'].replace(' -A ', ' -D ')
             if test_mode:
                 subprocess.run(["echo", "Mock command: ", *command.split()], check=True)
             else:
@@ -227,26 +287,36 @@ def cleanup_dnat_snat_rules(config, test_mode):
 def execute_command(command, print_command=True):
     if print_command:
         log(f"Executing command: {command}")
-    log(str(bash('-c', command, _tty_out=True)))
+    out=str(bash('-c', command, _tty_out=True)).strip()
+    if out:
+        log(out)
 
 def setup_stealthy_ports(stealthy_ports_commands):
-    for stealthy_ports_command in stealthy_ports_commands:
-        execute_command(f"{stealthy_ports_command['existence_pattern']} || {stealthy_ports_command['command']}" , print_command=stealthy_ports_command['print_command'])
+    for command in stealthy_ports_commands:
+        if args.routing_type == 'iptables':
+            if re.search(r"iptables -(A|I)", command):
+                add_firewall_rule(command)
+            else:
+                execute_command(f"{command}", False)
+        elif args.routing_type == 'nftables':
+            if re.search(r"nft (add|insert) rule", command):
+                add_firewall_rule(command)
+            else:
+                execute_command(f"{command}", False)
 
 def unset_stealthy_ports(stealthy_ports_commands):
-    for stealthy_ports_command in stealthy_ports_commands:
-        if stealthy_ports_command['existence_pattern'] != "false":
-            command = stealthy_ports_command['command']
-            if args.routing_type == 'iptables':
-                command = command.replace('-A', '-D')
-                command = command.replace('-I', '-D')
-                execute_command(f"{command} ; true" , print_command=stealthy_ports_command['print_command'])
-            elif args.routing_type == 'nftables':
+    for command in stealthy_ports_commands:
+        if args.routing_type == 'iptables':
+            if re.search(r"iptables -(A|I)", command):
+                delete_iptables_rule(command)
+        elif args.routing_type == 'nftables':
+            if re.search(r"nft (add|insert) rule", command):
                 delete_nftables_rule(command)
 
 def signal_handler(sig, frame, sessions, config, test_mode, stealthy_ports_commands):
     log("Server is shutting down...")
-    cleanup_iptables(sessions, test_mode)
+    ## we don't really want to remove the current access to services if KnockPort stops
+    # cleanup_firewall(sessions, test_mode)
     cleanup_dnat_snat_rules(config, test_mode)
     unset_stealthy_ports(stealthy_ports_commands)
     sys.exit(0)
@@ -267,14 +337,6 @@ if __name__ == '__main__':
     parser.add_argument('--rule-description', type=str, default='', help='Description to add to the firewall rule')
     args = parser.parse_args()
 
-    if args.routing_type == 'vyos':
-        if not args.nftables_table:
-            # table vyos_filter is used on VyOs so we set it as default
-            args.nftables_table = "vyos_filter"
-        if not args.nftables_chain:
-            # chain VYOS_INPUT_filter is used on VyOs so we set it as default
-            args.nftables_chain = "VYOS_INPUT_filter"
-
     if args.routing_type == 'nftables':
         if not args.nftables_table:
             # table filter is used on Debian so we set it as default
@@ -283,29 +345,41 @@ if __name__ == '__main__':
             # chain INPUT is used on Debian so we set it as default
             args.nftables_chain = "INPUT"
 
+    if args.routing_type == 'vyos':
+        if not args.nftables_table:
+            # table vyos_filter is used on VyOs so we set it as default
+            args.nftables_table = "vyos_filter"
+        if not args.nftables_chain:
+            # chain VYOS_INPUT_filter is used on VyOs so we set it as default
+            args.nftables_chain = "VYOS_INPUT_filter"
+
     app = create_app(args.config, 'session_cache.json', args.test)
     apply_dnat_snat_rules(app.config['config'], args.test)
-    
-    # Set up iptables rules for stealthy HTTP server
+
+    # Set up iptables/nftables rules for stealthy HTTP/HTTPS server
     stealthy_ports_commands = []
     if args.routing_type == 'iptables':
         stealthy_ports_commands = [
-            {"existence_pattern": "false", "command": "echo Allow incoming packets to HTTP port", "print_command": False},
-            {"existence_pattern": f"iptables -n -v -L | grep dpt:{args.http_port} | grep ACCEPT",
-                "command": f"iptables -A INPUT -p tcp --dport {args.http_port} -j ACCEPT", "print_command": True},
-            {"existence_pattern": "false", "command": "echo Drop outgoing traffic from KnockPort from HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a response from HTTP port", "print_command": False},
-            {"existence_pattern": f"iptables -n -v -L | grep spt:{args.http_port} | grep ACCEPT | grep flags:0x3F/0x12",
-                "command": f"iptables -A OUTPUT -p tcp --sport {args.http_port} --tcp-flags ALL SYN,ACK -j ACCEPT", "print_command": True},
-            {"existence_pattern": f"iptables -n -v -L | grep spt:{args.http_port} | grep DROP",
-                "command": f"iptables -A OUTPUT -p tcp --sport {args.http_port} -j DROP", "print_command": True},
-            {"existence_pattern": "false", "command": "echo Drop incoming packets to HTTPS port. Per IP allow rules will be created on request to HTTP port", "print_command": False},
-            {"existence_pattern": f"iptables -n -v -L | grep dpt:{args.https_port} | grep DROP",
-                "command": f"iptables -A INPUT -p tcp --dport {args.https_port} -j DROP", "print_command": True}
+            "echo Allow incoming packets to HTTP port",
+                f"iptables -A INPUT -p tcp --dport {args.http_port} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-accept'",
+            "echo Drop outgoing traffic from KnockPort HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a response from HTTP port",
+                f"iptables -A OUTPUT -p tcp --sport {args.http_port} --tcp-flags ALL SYN,ACK -j ACCEPT -m comment --comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-syn-ack-accept'",
+                f"iptables -A OUTPUT -p tcp --sport {args.http_port} -j DROP -m comment --comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-drop'",
+            "echo Drop incoming packets to HTTPS port. Per IP allow rules will be created on request to HTTP port",
+                f"iptables -A INPUT -p tcp --dport {args.https_port} -j DROP -m comment --comment 'ipv4-IN-KnockPort-tcp-dport-{args.https_port}-drop'"
         ]
         setup_stealthy_ports(stealthy_ports_commands)
     elif args.routing_type == 'nftables':
-        log("TODO: add stealthy_ports_commands for nftables")
-        sys.exit(0)
+        stealthy_ports_commands = [
+            "echo Allow incoming packets to HTTP port",
+                f"nft add rule ip filter INPUT tcp dport {args.http_port} counter accept comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-accept'",
+            "echo Drop outgoing traffic from KnockPort HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a response from HTTP port",
+                f"nft add rule ip filter OUTPUT tcp sport {args.http_port} tcp flags syn,ack counter accept comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-syn-ack-accept'",
+                f"nft add rule ip filter OUTPUT tcp sport {args.http_port} counter drop comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-drop'",
+            "echo Drop incoming packets to HTTPS port. Per IP allow rules will be created on request to HTTP port",
+                f"nft add rule ip filter INPUT tcp dport {args.https_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.https_port}-drop'"
+        ]
+        setup_stealthy_ports(stealthy_ports_commands)
 
     log(f"HTTP Server is starting on 0.0.0.0:{args.http_port}...")
     log(f"HTTPS Server is starting on 0.0.0.0:{args.https_port}...")
