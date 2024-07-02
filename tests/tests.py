@@ -1,24 +1,16 @@
 
 #!/usr/bin/env python3
 
-import requests
 import time
 import unittest
 import docker
-import json
 import yaml
 from time import sleep
-import subprocess
-import threading
-from http.server import HTTPServer, SimpleHTTPRequestHandler
 import urllib3
+from urllib3.exceptions import InsecureRequestWarning
 import warnings
+import requests
 
-# Suppress InsecureRequestWarning
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-# Disable all warnings
-warnings.filterwarnings('ignore')
 
 ## testing curl commands
 #  > 2 different requests need to be made one after another
@@ -28,6 +20,9 @@ warnings.filterwarnings('ignore')
 class TestServer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        # Suppress InsecureRequestWarning
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
         cls.client = docker.from_env()
         cls.container = cls.client.containers.get('port-knock-server')
         

@@ -101,7 +101,7 @@ fi
 
 ### 2. nftables
 if [[ "${RUN_TESTS_ROUTING_TYPE_NFTABLES}"  = "true" ]]; then
-    log "### testing --routing-type vyos"
+    log "### testing --routing-type nftables"
 
     # Stop and remove the Docker container
     docker stop -t 1 port-knock-server
