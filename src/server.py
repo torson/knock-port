@@ -41,20 +41,13 @@ def manage_sessions(session_file, sessions, lock, test_mode):
             expired_sessions = [s for s in sessions if current_time > s['expires_at']]
             for session in expired_sessions:
                 sessions.remove(session)
+                command = session['command']
                 with open(session_file, 'w') as f:
                     json.dump(sessions, f)
                     f.flush()
                     os.fsync(f.fileno())
                 if args.routing_type == 'iptables':
-                    command = session['command'].replace('-I', '-D')
-                    if test_mode:
-                        log(f"Mock command: {command}")
-                    else:
-                        log(f"Executing command: {command}")
-                        try:
-                            log(str(bash('-c', command)))
-                        except Exception as e:
-                            log_err("Error during operations:", e)
+                    delete_iptables_rule(command)
                 elif args.routing_type == 'nftables':
                     delete_nftables_rule(session['command'], test_mode)
                 elif args.routing_type == 'vyos':
@@ -84,11 +77,11 @@ def handle_request(config, sessions, lock, test_mode, session_file, port_to_open
         protocol = config[app_name]['protocol']
         interface = config[app_name]['interface']
         if args.routing_type == 'iptables':
-            command = f"iptables -I INPUT -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT"
+            command = f"iptables -I INPUT -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
         elif args.routing_type == 'nftables':
-            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port_to_open}-{client_ip}'"
+            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
         elif args.routing_type == 'vyos':
-            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-tmp-{interface}-{protocol}-{port_to_open}-{client_ip}'"
+            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
         session_exists = False
         expires_at = time.time() + duration
         for session in sessions:
@@ -210,7 +203,7 @@ def nftables_rule_exists(command, output=False):
     else:
         log_err(f"nftables : regex parsing of command failed : {command}")
 
-def add_firewall_rule(command):
+def add_nftables_rule(command):
     if not nftables_rule_exists(command, True):
         execute_command(f"{command}")
 
@@ -295,12 +288,12 @@ def setup_stealthy_ports(stealthy_ports_commands):
     for command in stealthy_ports_commands:
         if args.routing_type == 'iptables':
             if re.search(r"iptables -(A|I)", command):
-                add_firewall_rule(command)
+                add_iptables_rule(command)
             else:
                 execute_command(f"{command}", False)
         elif args.routing_type == 'nftables':
             if re.search(r"nft (add|insert) rule", command):
-                add_firewall_rule(command)
+                add_nftables_rule(command)
             else:
                 execute_command(f"{command}", False)
 
@@ -374,7 +367,7 @@ if __name__ == '__main__':
             "echo Allow incoming packets to HTTP port",
                 f"nft add rule ip filter INPUT tcp dport {args.http_port} counter accept comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-accept'",
             "echo Drop outgoing traffic from KnockPort HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a response from HTTP port",
-                f"nft add rule ip filter OUTPUT tcp sport {args.http_port} tcp flags syn,ack counter accept comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-syn-ack-accept'",
+                f"nft add rule ip filter OUTPUT tcp sport {args.http_port} 'tcp flags & (syn|ack) == syn|ack' counter accept comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-syn-ack-accept'",
                 f"nft add rule ip filter OUTPUT tcp sport {args.http_port} counter drop comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-drop'",
             "echo Drop incoming packets to HTTPS port. Per IP allow rules will be created on request to HTTP port",
                 f"nft add rule ip filter INPUT tcp dport {args.https_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.https_port}-drop'"
