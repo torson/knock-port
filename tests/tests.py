@@ -17,6 +17,9 @@ import warnings
 # Suppress InsecureRequestWarning
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# Disable all warnings
+warnings.filterwarnings('ignore')
+
 ## testing curl commands
 #  > 2 different requests need to be made one after another
 # curl -d 'app=test_app&access_key=test_secret_http' http://localhost:8080 -v
