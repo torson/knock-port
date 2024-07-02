@@ -1,6 +1,6 @@
 
 test_app:
-  port: 9999
+  port: 1194
   access_key_http: test_secret_http
   access_key_https: test_secret_https
   destination: local

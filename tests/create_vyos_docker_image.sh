@@ -10,7 +10,7 @@ if docker images | grep vyos | grep ${VYOS_ROLLING_VERSION} ; then
     exit
 fi
 
-# taken from https://docs.vyos.io/en/latest/installation/virtual/docker.html
+# https://docs.vyos.io/en/latest/installation/virtual/docker.html
 mkdir vyos-docker && cd vyos-docker
 curl -o vyos-${VYOS_ROLLING_VERSION}-amd64.iso https://github.com/vyos/vyos-rolling-nightly-builds/releases/download/${VYOS_ROLLING_VERSION}/vyos-${VYOS_ROLLING_VERSION}-amd64.iso
 

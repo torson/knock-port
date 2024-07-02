@@ -78,10 +78,13 @@ def handle_request(config, sessions, lock, test_mode, session_file, port_to_open
         interface = config[app_name]['interface']
         if args.routing_type == 'iptables':
             command = f"iptables -I INPUT -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
+            add_iptables_rule(command)
         elif args.routing_type == 'nftables':
-            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
+            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
+            add_nftables_rule(command)
         elif args.routing_type == 'vyos':
-            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
+            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
+            add_nftables_rule(command)
         session_exists = False
         expires_at = time.time() + duration
         for session in sessions:
@@ -90,21 +93,12 @@ def handle_request(config, sessions, lock, test_mode, session_file, port_to_open
                 session['expires_at'] = expires_at
                 session_exists = True
                 break
-        if not session_exists:
-            try:
-                if test_mode:
-                    log(f"Mock command: {command}")
-                else:
-                    log(f"Executing command: {command}")
-                    log(str(bash('-c', command, _tty_out=True)))
-                with lock:
-                    sessions.append({'command': command, 'expires_at': expires_at})
-                    with open(session_file, 'w') as f:
-                        json.dump(sessions, f)
-                        f.flush()
-                        os.fsync(f.fileno())
-            except Exception as e:
-                log_err(f"Error during operations: {e}")
+        with lock:
+            sessions.append({'command': command, 'expires_at': expires_at})
+            with open(session_file, 'w') as f:
+                json.dump(sessions, f)
+                f.flush()
+                os.fsync(f.fileno())
     else:
         log_err(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
     abort(503)
@@ -248,6 +242,8 @@ def cleanup_firewall(sessions, test_mode):
                 subprocess.run(command.split(), check=True)
         elif args.routing_type == 'nftables':
             delete_nftables_rule(session['command'], test_mode)
+        elif args.routing_type == 'vyos':
+            delete_nftables_rule(session['command'], test_mode)
 
 def apply_dnat_snat_rules(config, test_mode):
     for app_name, app_config in config.items():
@@ -296,6 +292,11 @@ def setup_stealthy_ports(stealthy_ports_commands):
                 add_nftables_rule(command)
             else:
                 execute_command(f"{command}", False)
+        elif args.routing_type == 'vyos':
+            if re.search(r"nft (add|insert) rule", command):
+                add_nftables_rule(command)
+            else:
+                execute_command(f"{command}", False)
 
 def unset_stealthy_ports(stealthy_ports_commands):
     for command in stealthy_ports_commands:
@@ -303,6 +304,9 @@ def unset_stealthy_ports(stealthy_ports_commands):
             if re.search(r"iptables -(A|I)", command):
                 delete_iptables_rule(command)
         elif args.routing_type == 'nftables':
+            if re.search(r"nft (add|insert) rule", command):
+                delete_nftables_rule(command)
+        elif args.routing_type == 'vyos':
             if re.search(r"nft (add|insert) rule", command):
                 delete_nftables_rule(command)
 
@@ -326,25 +330,38 @@ if __name__ == '__main__':
     parser.add_argument('--key', type=str, help='Path to the SSL key file')
     parser.add_argument('--routing-type', type=str, default='iptables', choices=['iptables', 'nftables', 'vyos'], help='Type of routing to use (default: iptables)')
     parser.add_argument('--nftables-table', type=str, help='add nftables rules to this table (vyos_filter by default when --routing-type vyos)')
-    parser.add_argument('--nftables-chain', type=str, help='add nftables rules to this table chain')
-    parser.add_argument('--rule-description', type=str, default='', help='Description to add to the firewall rule')
+    parser.add_argument('--nftables-chain-input', type=str, help='add nftables rules to this table chain, used for service allow rules')
+    parser.add_argument('--nftables-chain-default-input', type=str, help='add nftables rules to this table chain hooked to input, used for KnockPort http/https ports')
+    parser.add_argument('--nftables-chain-default-output', type=str, help='add nftables rules to this table chain hooked to output, used for KnockPort http/https ports')
     args = parser.parse_args()
 
     if args.routing_type == 'nftables':
         if not args.nftables_table:
             # table filter is used on Debian so we set it as default
             args.nftables_table = "filter"
-        if not args.nftables_chain:
+        if not args.nftables_chain_input:
+            # chain used for KnockPort service allow rules
+            args.nftables_chain_input = "INPUT"
+        if not args.nftables_chain_default_input:
             # chain INPUT is used on Debian so we set it as default
-            args.nftables_chain = "INPUT"
+            args.nftables_chain_default_input = "INPUT"
+        if not args.nftables_chain_default_output:
+            # chain OUTPUT is used on Debian so we set it as default
+            args.nftables_chain_default_output = "OUTPUT"
 
     if args.routing_type == 'vyos':
         if not args.nftables_table:
             # table vyos_filter is used on VyOs so we set it as default
             args.nftables_table = "vyos_filter"
-        if not args.nftables_chain:
+        if not args.nftables_chain_input:
+            # chain used for KnockPort service allow rules
+            args.nftables_chain_input = "IN-KnockPort"
+        if not args.nftables_chain_default_input:
             # chain VYOS_INPUT_filter is used on VyOs so we set it as default
-            args.nftables_chain = "VYOS_INPUT_filter"
+            args.nftables_chain_default_input = "VYOS_INPUT_filter"
+        if not args.nftables_chain_default_output:
+            # chain VYOS_OUTPUT_filter is used on VyOs so we set it as default
+            args.nftables_chain_default_output = "VYOS_OUTPUT_filter"
 
     app = create_app(args.config, 'session_cache.json', args.test)
     apply_dnat_snat_rules(app.config['config'], args.test)
@@ -365,12 +382,23 @@ if __name__ == '__main__':
     elif args.routing_type == 'nftables':
         stealthy_ports_commands = [
             "echo Allow incoming packets to HTTP port",
-                f"nft add rule ip filter INPUT tcp dport {args.http_port} counter accept comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-accept'",
+                f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_input} tcp dport {args.http_port} counter accept comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-accept'",
             "echo Drop outgoing traffic from KnockPort HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a response from HTTP port",
-                f"nft add rule ip filter OUTPUT tcp sport {args.http_port} 'tcp flags & (syn|ack) == syn|ack' counter accept comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-syn-ack-accept'",
-                f"nft add rule ip filter OUTPUT tcp sport {args.http_port} counter drop comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-drop'",
+                f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_output} tcp sport {args.http_port} 'tcp flags & (syn|ack) == syn|ack' counter accept comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-syn-ack-accept'",
+                f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_output} tcp sport {args.http_port} counter drop comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-drop'",
             "echo Drop incoming packets to HTTPS port. Per IP allow rules will be created on request to HTTP port",
-                f"nft add rule ip filter INPUT tcp dport {args.https_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.https_port}-drop'"
+                f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_input} tcp dport {args.https_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.https_port}-drop'"
+        ]
+        setup_stealthy_ports(stealthy_ports_commands)
+    elif args.routing_type == 'vyos':
+        stealthy_ports_commands = [
+            "echo Allow incoming packets to HTTP port",
+                f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_input} tcp dport {args.http_port} counter accept comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-accept'",
+            "echo Drop outgoing traffic from KnockPort HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a response from HTTP port",
+                f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_output} tcp sport {args.http_port} 'tcp flags & (syn|ack) == syn|ack' counter accept comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-syn-ack-accept'",
+                f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_output} tcp sport {args.http_port} counter drop comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-drop'",
+            "echo Drop incoming packets to HTTPS port. Per IP allow rules will be created on request to HTTP port",
+                f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_input} tcp dport {args.https_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.https_port}-drop'"
         ]
         setup_stealthy_ports(stealthy_ports_commands)
 

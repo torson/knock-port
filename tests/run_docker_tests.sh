@@ -32,9 +32,9 @@ run_command() {
 }
 
 VERBOSE=true
-RUN_TESTS_ROUTING_TYPE_IPTABLES=true
-RUN_TESTS_ROUTING_TYPE_NFTABLES=true
-RUN_TESTS_ROUTING_TYPE_VYOS=false
+RUN_TESTS_ROUTING_TYPE_IPTABLES=false
+RUN_TESTS_ROUTING_TYPE_NFTABLES=false
+RUN_TESTS_ROUTING_TYPE_VYOS=true
 
 
 if [ ! -f knock-port.testing.pem ] ; then
@@ -73,8 +73,6 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
     # Run the server in a Docker container using host network
     run_command docker run --rm -d --cap-add=NET_ADMIN -v $(pwd):/app -p ${KNOCKPORT_PORT_HTTP}:${KNOCKPORT_PORT_HTTP} -p ${KNOCKPORT_PORT_HTTPS}:${KNOCKPORT_PORT_HTTPS} -p ${TEST_SERVICE_PORT}:${TEST_SERVICE_PORT} --name port-knock-server port-knock-server python -m http.server ${TEST_SERVICE_PORT}
 
-    SERVICE_CONTAINER_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' port-knock-server)
-
     log "installing requirements"
     log "docker exec port-knock-server bash -c \
         'pip install --no-cache-dir -r requirements.txt'"
@@ -84,7 +82,7 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
     log "Drop access to the testing service port"
     run_command docker exec port-knock-server iptables -A INPUT -p tcp --dport ${TEST_SERVICE_PORT} -j DROP
 
-    # python src/server.py -c tests/config.test.yaml --routing-type iptables --http-port ${KNOCKPORT_PORT_HTTP} --https-port ${KNOCKPORT_PORT_HTTPS} --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
+    log "Starting KnockPort"
     log docker exec port-knock-server bash -c \
         'python src/server.py -c tests/config.test.yaml --routing-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
     docker exec port-knock-server bash -c \
@@ -108,8 +106,6 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_NFTABLES}"  = "true" ]]; then
     sleep 1
     # Run the server in a Docker container using host network
     run_command docker run --rm -d --cap-add=NET_ADMIN -v $(pwd):/app -p ${KNOCKPORT_PORT_HTTP}:${KNOCKPORT_PORT_HTTP} -p ${KNOCKPORT_PORT_HTTPS}:${KNOCKPORT_PORT_HTTPS} -p ${TEST_SERVICE_PORT}:${TEST_SERVICE_PORT} --name port-knock-server port-knock-server python -m http.server ${TEST_SERVICE_PORT}
-
-    SERVICE_CONTAINER_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' port-knock-server)
 
     log "installing requirements"
     log "docker exec port-knock-server bash -c \
@@ -136,10 +132,11 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_NFTABLES}"  = "true" ]]; then
     #   Docs:
     #     https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/configuring_and_managing_networking/getting-started-with-nftables_configuring-and-managing-networking
     #     https://unix.stackexchange.com/questions/753858/nftables-deleting-a-rule-without-passing-handle-similar-to-iptables-delete
+    log "Starting KnockPort"
     log docker exec port-knock-server bash -c \
-        'python src/server.py -c tests/config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.nftables.log 2>&1 &'
+        'python src/server.py -c tests/config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain-input INPUT --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.nftables.log 2>&1 &'
     docker exec port-knock-server bash -c \
-        'python src/server.py -c tests/config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain INPUT --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.nftables.log 2>&1 &'
+        'python src/server.py -c tests/config.test.yaml --routing-type nftables --nftables-table filter --nftables-chain-input INPUT --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.nftables.log 2>&1 &'
     sleep 3
 
     # Run the tests
@@ -158,32 +155,93 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
     export VYOS_ROLLING_VERSION=1.5-rolling-202405260021
     bash create_vyos_docker_image.sh
 
-    if [[ -z "${SERVICE_CONTAINER_IP}" ]]; then
-        log "Starting backend service container"
-        docker stop -t 1 port-knock-server
-        run_command docker run -d --rm -v $(pwd):/app --name port-knock-server port-knock-server python -m http.server ${TEST_SERVICE_PORT}
-        SERVICE_CONTAINER_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' port-knock-server)
+    # # Stop and remove the Docker container
+    # docker stop -t 1 port-knock-server
+    # sleep 1
+
+    if ! docker ps | grep port-knock-server; then
+        # https://docs.vyos.io/en/latest/installation/virtual/docker.html
+        run_command docker run --rm -d --name port-knock-server --privileged -v $(pwd):/app -v /lib/modules:/lib/modules -p ${KNOCKPORT_PORT_HTTP}:${KNOCKPORT_PORT_HTTP} -p ${KNOCKPORT_PORT_HTTPS}:${KNOCKPORT_PORT_HTTPS} -p ${TEST_SERVICE_PORT}:${TEST_SERVICE_PORT} vyos:${VYOS_ROLLING_VERSION} /sbin/init
+        log "Sleeping 30s as VyOs takes a few seconds to initialize"
+        sleep 30
     fi
 
-    if ! docker ps | grep vyos; then
-        # docker run -d --rm --name vyos --privileged -v /lib/modules:/lib/modules -p ${TEST_SERVICE_PORT}:${TEST_SERVICE_PORT} vyos:${VYOS_ROLLING_VERSION} /sbin/init
-        run_command docker run --rm -d --cap-add=NET_ADMIN -v $(pwd):/app -v /lib/modules:/lib/modules -p ${KNOCKPORT_PORT_HTTP}:${KNOCKPORT_PORT_HTTP} -p ${KNOCKPORT_PORT_HTTPS}:${KNOCKPORT_PORT_HTTPS} -p ${TEST_SERVICE_PORT}:${TEST_SERVICE_PORT} --name vyos vyos:${VYOS_ROLLING_VERSION} /sbin/init
+    log "preparing VyOS"
+    docker exec port-knock-server bash -c '
+            echo "127.0.0.1 $(hostname)" >> /etc/hosts
+        '
 
-    fi
-    # docker exec -ti vyos su - vyos
+    docker exec -u vyos port-knock-server vbash -c '
+            source /opt/vyatta/etc/functions/script-template
+            configure
+            echo "Set up DNS"
+            set system name-server 8.8.8.8
+            set service dns forwarding listen-address 127.0.0.1
+            set service dns forwarding allow-from 0.0.0.0/0
+            commit
+            exit
+        '
 
-    # set firewall ipv4 name IN-KnockPort default-action 'accept'
-    # set firewall ipv4 input filter rule 20 action jump
-    # set firewall ipv4 input filter rule 20 jump-target IN-KnockPort
+    docker exec port-knock-server bash -c '
+            echo "Installing python-pip3"
+            echo "deb http://deb.debian.org/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list
+            apt-get update
+            apt-get install python3-pip python3-venv
+            echo "installing KnockPort requirements"
+            python3 -m venv ~/venv
+            cd /app
+            ~/venv/bin/pip install --no-cache-dir -r requirements.txt
+        '
 
+    docker exec -u vyos port-knock-server vbash -c '
+            source /opt/vyatta/etc/functions/script-template
+            configure
+            echo "Generate certificate for OpenVPN and set up OpenVPN"
+            echo -e "\n\n\n\n\n\n\n\n\n" | run generate pki ca install ca-1
+            commit
+            echo "generating "
+            echo -e "\n\n\n\n\n\n\n\n\n\n\n\n" | run generate pki certificate sign ca-1 install srv-1
+            commit
+            echo -e "\n" | run generate pki dh install dh-1
+            commit
+            echo "Create chain and default DROP rule for OpenVPN"
+            set firewall ipv4 name IN-KnockPort default-action accept
+            set firewall ipv4 name IN-KnockPort rule 992 inbound-interface name eth0
+            set firewall ipv4 name IN-KnockPort rule 992 action drop
+            set firewall ipv4 name IN-KnockPort rule 992 description "Drop TCP 1194 by default"
+            set firewall ipv4 name IN-KnockPort rule 992 protocol tcp
+            set firewall ipv4 name IN-KnockPort rule 992 destination port 1194
+            set firewall ipv4 input filter rule 20 action jump
+            set firewall ipv4 input filter rule 20 jump-target IN-KnockPort
+            echo "Set up OpenVPN"
+            set interfaces openvpn vtun0 local-port 1194
+            set interfaces openvpn vtun0 mode server
+            set interfaces openvpn vtun0 protocol tcp-passive
+            set interfaces openvpn vtun0 encryption cipher aes256
+            set interfaces openvpn vtun0 hash sha512
+            set interfaces openvpn vtun0 server max-connections 30
+            set interfaces openvpn vtun0 server topology subnet
+            set interfaces openvpn vtun0 tls ca-certificate ca-1
+            set interfaces openvpn vtun0 tls certificate srv-1
+            set interfaces openvpn vtun0 tls dh-params dh-1
+            set interfaces openvpn vtun0 server subnet 10.100.1.0/24
+            commit
+            exit
+        '
 
-    log docker exec port-knock-server bash -c \
-        'python src/server.py -c tests/config.test.yaml --routing-type vyos --nftables-table vyos_filter --nftables-chain IN-KnockPort --port '${KNOCKPORT_PORT_HTTP}' > tests/run_docker_tests.server.vyos.log 2>&1 &'
-    docker exec port-knock-server bash -c \
-        'python src/server.py -c tests/config.test.yaml --routing-type vyos --nftables-table vyos_filter --nftables-chain IN-KnockPort --port '${KNOCKPORT_PORT_HTTP}' > tests/run_docker_tests.server.vyos.log 2>&1 &'
+    log "Starting KnockPort"
+    touch tests/run_docker_tests.server.vyos.log
+    log docker exec port-knock-server vbash -c \
+        '~/venv/bin/python src/server.py -c tests/config.test.yaml --routing-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
+    docker exec port-knock-server vbash -c \
+        '~/venv/bin/python src/server.py -c tests/config.test.yaml --routing-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
     sleep 3
 
+    # Run the tests
+    cd ${CWD}
+    run_command python tests.py
+    cd ..
+
     run_command docker stop -t 1 port-knock-server
-    # run_command docker stop -t 1 vyos
 
 fi
