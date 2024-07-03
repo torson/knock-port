@@ -404,14 +404,6 @@ def unset_stealthy_ports(stealthy_ports_commands):
             if re.search(r"nft (add|insert) rule", command):
                 delete_nftables_rule(command)
 
-def signal_handler(sig, frame, sessions, config, test_mode, stealthy_ports_commands):
-    log("Server is shutting down...")
-    ## we don't really want to remove the current access to services if KnockPort stops
-    # cleanup_firewall(sessions, test_mode)
-    cleanup_dnat_snat_rules(config, test_mode)
-    unset_stealthy_ports(stealthy_ports_commands)
-    sys.exit(0)
-
 def init_vars():
     if args.routing_type == 'nftables':
         if not args.nftables_table:
@@ -460,6 +452,13 @@ def init_vars():
             args.nftables_chain_default_output = "VYOS_OUTPUT_filter"
         log(f"nftables_chain_default_output = {args.nftables_chain_default_output}")
 
+def signal_handler(sig, frame, sessions, config, test_mode, stealthy_ports_commands):
+    log("Server is shutting down...")
+    ## we don't really want to remove the current access to services if KnockPort stops
+    # cleanup_firewall(sessions, test_mode)
+    cleanup_dnat_snat_rules(config, test_mode)
+    unset_stealthy_ports(stealthy_ports_commands)
+    sys.exit(0)
 
 if __name__ == '__main__':
     import sys
