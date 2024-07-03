@@ -484,7 +484,7 @@ def signal_handler(sig, frame, http_server, https_server, sessions, config, test
 
 if __name__ == '__main__':
 
-    args = parse_args
+    args = parse_args()
     init_vars()
     app = create_app(args.config, 'session_cache.json', args.test)
     apply_dnat_snat_rules(app.config['config'], args.test)
