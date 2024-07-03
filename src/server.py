@@ -467,6 +467,7 @@ def parse_args():
     parser.add_argument('--nftables-chain-input', type=str, help='add nftables rules to this table chain, used for service allow rules')
     parser.add_argument('--nftables-chain-default-input', type=str, help='add nftables rules to this table chain hooked to input, used for KnockPort http/https ports')
     parser.add_argument('--nftables-chain-default-output', type=str, help='add nftables rules to this table chain hooked to output, used for KnockPort http/https ports')
+    parser.add_argument('--cleanup', action='store_true', help='Cleanup firewall service rules on shutdown')
     args = parser.parse_args()
     return args
 
@@ -474,8 +475,8 @@ def shutdown_servers(http_server, https_server, sessions, config, test_mode, ste
     log("Server is shutting down...")
     http_server.shutdown()
     https_server.shutdown()
-    ## we don't really want to remove the current access to services if KnockPort stops
-    # cleanup_firewall(sessions, test_mode)
+    if args.cleanup:
+        cleanup_firewall(sessions, test_mode)
     cleanup_dnat_snat_rules(config, test_mode)
     unset_stealthy_ports(stealthy_ports_commands)
     sys.exit(0)
