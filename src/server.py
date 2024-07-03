@@ -5,6 +5,7 @@ import time
 import sys
 import signal
 from flask import Flask, request, abort
+from werkzeug.serving import make_server
 from threading import Thread, Lock
 import json
 import subprocess
@@ -468,13 +469,16 @@ def parse_args():
     parser.add_argument('--nftables-chain-default-output', type=str, help='add nftables rules to this table chain hooked to output, used for KnockPort http/https ports')
     args = parser.parse_args()
 
-def signal_handler(sig, frame, sessions, config, test_mode, stealthy_ports_commands):
+def shutdown_servers(http_server, https_server, sessions, config, test_mode, stealthy_ports_commands):
     log("Server is shutting down...")
-    ## we don't really want to remove the current access to services if KnockPort stops
-    # cleanup_firewall(sessions, test_mode)
+    http_server.shutdown()
+    https_server.shutdown()
     cleanup_dnat_snat_rules(config, test_mode)
     unset_stealthy_ports(stealthy_ports_commands)
     sys.exit(0)
+
+def signal_handler(sig, frame, http_server, https_server, sessions, config, test_mode, stealthy_ports_commands):
+    shutdown_servers(http_server, https_server, sessions, config, test_mode, stealthy_ports_commands)
 
 if __name__ == '__main__':
 
@@ -494,11 +498,20 @@ if __name__ == '__main__':
     
     from threading import Thread
     
-    http_server = Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': args.http_port, 'ssl_context': None})
-    https_server = Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': args.https_port, 'ssl_context': (args.cert, args.key) if args.cert and args.key else None})
+    http_server = make_server('0.0.0.0', args.http_port, app)
+    https_server = make_server('0.0.0.0', args.https_port, app, ssl_context=(args.cert, args.key) if args.cert and args.key else None)
     
-    http_server.start()
-    https_server.start()
+    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, http_server, https_server, app.config['sessions'], app.config['config'], args.test, stealthy_ports_commands))
+    signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, http_server, https_server, app.config['sessions'], app.config['config'], args.test, stealthy_ports_commands))
     
-    http_server.join()
-    https_server.join()
+    http_thread = Thread(target=http_server.serve_forever)
+    https_thread = Thread(target=https_server.serve_forever)
+    
+    http_thread.start()
+    https_thread.start()
+    
+    try:
+        http_thread.join()
+        https_thread.join()
+    except KeyboardInterrupt:
+        shutdown_servers(http_server, https_server, app.config['sessions'], app.config['config'], args.test, stealthy_ports_commands)
