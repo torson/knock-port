@@ -27,7 +27,7 @@ class TestServer(unittest.TestCase):
         cls.container = cls.client.containers.get('port-knock-server')
         
         # Set default policies
-        with open('config.test.yaml', 'r') as config_file:
+        with open('tests/config.test.yaml', 'r') as config_file:
             config = yaml.safe_load(config_file)
         cls.test_app_port = config['test_app']['port']
         cls.http_port = 8080
@@ -55,7 +55,7 @@ class TestServer(unittest.TestCase):
         max_retries = 10
         retry_delay = 1  # seconds
         for _ in range(max_retries):
-            exec_result = self.container.exec_run('cat session_cache.json')
+            exec_result = self.container.exec_run('cat /app/session_cache.json')
             sessions = exec_result.output.decode('utf-8')
             if '"command":' in sessions:
                 break
@@ -68,13 +68,13 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200, f"Port {self.test_app_port} should be accessible after the two-phase process")
 
         # Wait for the session to expire for the other tests to get clean environment
-        with open('config.test.yaml', 'r') as config_file:
+        with open('tests/config.test.yaml', 'r') as config_file:
             config = yaml.safe_load(config_file)
         max_wait_time = config['test_app']['duration'] + 5
         start_time = time.time()
         
         while time.time() - start_time < max_wait_time:
-            exec_result = self.container.exec_run('cat session_cache.json')
+            exec_result = self.container.exec_run('cat /app/session_cache.json')
             sessions = exec_result.output.decode('utf-8')
             if sessions.strip() == '[]':
                 break
@@ -93,13 +93,13 @@ class TestServer(unittest.TestCase):
                       timeout=5)
 
         # Wait for the session to expire
-        with open('config.test.yaml', 'r') as config_file:
+        with open('tests/config.test.yaml', 'r') as config_file:
             config = yaml.safe_load(config_file)
         max_wait_time = config['test_app']['duration'] + 5
         start_time = time.time()
         
         while time.time() - start_time < max_wait_time:
-            exec_result = self.container.exec_run('cat session_cache.json')
+            exec_result = self.container.exec_run('cat /app/session_cache.json')
             sessions = exec_result.output.decode('utf-8')
             if sessions.strip() == '[]':
                 break
@@ -110,6 +110,7 @@ class TestServer(unittest.TestCase):
         if time.time() - start_time >= max_wait_time:
             self.fail("Session did not expire within the maximum wait time")
 
+        time.sleep(1)
         # Verify that the port is no longer accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.get(f'http://localhost:{self.test_app_port}', timeout=1)

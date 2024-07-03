@@ -1,7 +1,5 @@
 FROM python:3.9.19-slim
 
-WORKDIR /app
-
 RUN apt-get update && \
     echo "install system network utils" && \
     apt-get -y install iputils-ping net-tools telnet iproute2 procps dnsutils && \
@@ -13,7 +11,9 @@ RUN apt-get update && \
 RUN echo "install iptables and nftables, curl" && \
     apt-get -y install iptables nftables curl
 
+WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
 
 CMD ["sh", "-c", "echo 'keeping service up ...' && tail -f /dev/null"]
