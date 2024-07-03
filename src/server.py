@@ -280,11 +280,7 @@ def cleanup_firewall(sessions, test_mode):
     for session in sessions:
         if args.routing_type == 'iptables':
             command = session['command'].replace(' -A ', ' -D ')
-            if test_mode:
-                subprocess.run(["echo", "Mock command: ", *command.split()], check=True)
-            else:
-                log(f"Executing command: {command}")
-                subprocess.run(command.split(), check=True)
+            delete_iptables_rule(command)
         elif args.routing_type == 'nftables':
             delete_nftables_rule(session['command'], test_mode)
         elif args.routing_type == 'vyos':
@@ -467,7 +463,7 @@ def parse_args():
     parser.add_argument('--nftables-chain-input', type=str, help='add nftables rules to this table chain, used for service allow rules')
     parser.add_argument('--nftables-chain-default-input', type=str, help='add nftables rules to this table chain hooked to input, used for KnockPort http/https ports')
     parser.add_argument('--nftables-chain-default-output', type=str, help='add nftables rules to this table chain hooked to output, used for KnockPort http/https ports')
-    parser.add_argument('--cleanup', action='store_true', help='Cleanup firewall service rules on shutdown')
+    parser.add_argument('--cleanup', action='store_true', default='False', help='cleanup firewall service(s) rules on shutdown. Do not set this if you want keep access to service(s) in case KnockPort is shut down')
     args = parser.parse_args()
     return args
 
