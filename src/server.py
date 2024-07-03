@@ -406,7 +406,7 @@ def unset_stealthy_ports(stealthy_ports_commands):
             if re.search(r"nft (add|insert) rule", command):
                 delete_nftables_rule(command)
 
-def init_vars():
+def init_vars(args):
     if args.routing_type == 'nftables':
         if not args.nftables_table:
             # table filter is used on Debian so we set it as default
@@ -468,6 +468,7 @@ def parse_args():
     parser.add_argument('--nftables-chain-default-input', type=str, help='add nftables rules to this table chain hooked to input, used for KnockPort http/https ports')
     parser.add_argument('--nftables-chain-default-output', type=str, help='add nftables rules to this table chain hooked to output, used for KnockPort http/https ports')
     args = parser.parse_args()
+    return args
 
 def shutdown_servers(http_server, https_server, sessions, config, test_mode, stealthy_ports_commands):
     log("Server is shutting down...")
@@ -485,7 +486,7 @@ def signal_handler(sig, frame, http_server, https_server, sessions, config, test
 if __name__ == '__main__':
 
     args = parse_args()
-    init_vars()
+    init_vars(args)
     app = create_app(args.config, 'session_cache.json', args.test)
     apply_dnat_snat_rules(app.config['config'], args.test)
 
