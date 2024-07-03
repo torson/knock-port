@@ -473,6 +473,8 @@ def shutdown_servers(http_server, https_server, sessions, config, test_mode, ste
     log("Server is shutting down...")
     http_server.shutdown()
     https_server.shutdown()
+    ## we don't really want to remove the current access to services if KnockPort stops
+    # cleanup_firewall(sessions, test_mode)
     cleanup_dnat_snat_rules(config, test_mode)
     unset_stealthy_ports(stealthy_ports_commands)
     sys.exit(0)
