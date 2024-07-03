@@ -3,6 +3,7 @@ import argparse
 import yaml
 import time
 import sys
+import signal
 from flask import Flask, request, abort
 from threading import Thread, Lock
 import json
@@ -452,17 +453,7 @@ def init_vars():
             args.nftables_chain_default_output = "VYOS_OUTPUT_filter"
         log(f"nftables_chain_default_output = {args.nftables_chain_default_output}")
 
-def signal_handler(sig, frame, sessions, config, test_mode, stealthy_ports_commands):
-    log("Server is shutting down...")
-    ## we don't really want to remove the current access to services if KnockPort stops
-    # cleanup_firewall(sessions, test_mode)
-    cleanup_dnat_snat_rules(config, test_mode)
-    unset_stealthy_ports(stealthy_ports_commands)
-    sys.exit(0)
-
-if __name__ == '__main__':
-    import sys
-    import signal
+def parse_args():
     parser = argparse.ArgumentParser(description="Server Application")
     parser.add_argument('-c', '--config', type=str, default='config.yaml', help='Path to the configuration file. If omitted, `config.yaml` in the current directory is used by default')
     parser.add_argument('-t', '--test', action='store_true', help='Enable test mode to mock iptables commands')
@@ -477,6 +468,17 @@ if __name__ == '__main__':
     parser.add_argument('--nftables-chain-default-output', type=str, help='add nftables rules to this table chain hooked to output, used for KnockPort http/https ports')
     args = parser.parse_args()
 
+def signal_handler(sig, frame, sessions, config, test_mode, stealthy_ports_commands):
+    log("Server is shutting down...")
+    ## we don't really want to remove the current access to services if KnockPort stops
+    # cleanup_firewall(sessions, test_mode)
+    cleanup_dnat_snat_rules(config, test_mode)
+    unset_stealthy_ports(stealthy_ports_commands)
+    sys.exit(0)
+
+if __name__ == '__main__':
+
+    args = parse_args
     init_vars()
     app = create_app(args.config, 'session_cache.json', args.test)
     apply_dnat_snat_rules(app.config['config'], args.test)
