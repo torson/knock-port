@@ -41,7 +41,7 @@ def execute_command(command, print_command=True):
     if out:
         log(out)
 
-def manage_sessions(session_file, sessions, lock, test_mode):
+def manage_sessions(session_file, sessions, lock):
     while True:
         current_time = time.time()
         with lock:
@@ -59,12 +59,12 @@ def manage_sessions(session_file, sessions, lock, test_mode):
                 if args.routing_type == 'iptables':
                     delete_iptables_rule(command)
                 elif args.routing_type == 'nftables':
-                    delete_nftables_rule(session['command'], test_mode)
+                    delete_nftables_rule(session['command'])
                 elif args.routing_type == 'vyos':
-                    delete_nftables_rule(session['command'], test_mode)
+                    delete_nftables_rule(session['command'])
         time.sleep(1)
 
-def handle_request(config, sessions, lock, test_mode, session_file, port_to_open, access_key_type):
+def handle_request(config, sessions, lock, session_file, port_to_open, access_key_type):
     log(f"Received request from {request.remote_addr}")
     data = request.form
     log(f"Received data: {dict(data)}")
@@ -78,7 +78,7 @@ def handle_request(config, sessions, lock, test_mode, session_file, port_to_open
     log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
     log(f"Client IP: {client_ip}")
-    if app_name in config and config[app_name][f'access_key_{access_key_type}'] == access_key:
+    if app_name in config and access_key in config[app_name][f'access_key_{access_key_type}']:
         protocol = config[app_name]['protocol']
         interface = config[app_name]['interface']
         if access_key_type == "http":
@@ -115,7 +115,7 @@ def handle_request(config, sessions, lock, test_mode, session_file, port_to_open
         log_err(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
     abort(503)
 
-def create_app(config_path, session_file, test_mode):
+def create_app(config_path, session_file):
     config = load_config(config_path)
     sessions = []
     lock = Lock()
@@ -128,7 +128,7 @@ def create_app(config_path, session_file, test_mode):
     except FileNotFoundError:
         log("No existing session file found. Starting fresh.")
 
-    session_manager = Thread(target=manage_sessions, args=(session_file, sessions, lock, test_mode))
+    session_manager = Thread(target=manage_sessions, args=(session_file, sessions, lock))
     session_manager.daemon = True
     session_manager.start()
 
@@ -139,7 +139,7 @@ def create_app(config_path, session_file, test_mode):
             log("Aborting GET request with 404")
             abort(404)
         elif request.method == 'POST':
-            return handle_request(config, sessions, lock, test_mode, session_file, args.https_port, 'http')
+            return handle_request(config, sessions, lock, session_file, args.https_port, 'http')
 
     @app.route('/secure', methods=['POST'])
     def handle_https_request():
@@ -147,7 +147,7 @@ def create_app(config_path, session_file, test_mode):
         if app_name not in config:
             log_err(f"Invalid app name: {app_name}")
             abort(503)
-        return handle_request(config, sessions, lock, test_mode, session_file, config[app_name]['port'], 'https')
+        return handle_request(config, sessions, lock, session_file, config[app_name]['port'], 'https')
 
     app.config['config'] = config
     app.config['sessions'] = sessions
@@ -286,33 +286,25 @@ def cleanup_firewall(sessions, test_mode):
         elif args.routing_type == 'vyos':
             delete_nftables_rule(session['command'], test_mode)
 
-def apply_dnat_snat_rules(config, test_mode):
+def apply_dnat_snat_rules(config):
     for app_name, app_config in config.items():
         if app_config['destination'] != "local":
             dnat_command = f"iptables -t nat -A PREROUTING -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {app_config['destination']}:{app_config['port']}"
             snat_command = f"iptables -t nat -A POSTROUTING -o {app_config['interface']} -p {app_config['protocol']} -s {app_config['destination']} --sport {app_config['port']} -j MASQUERADE"
-            if test_mode:
-                subprocess.run(["echo", "Mock command: ", *dnat_command.split()], check=True)
-                subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
-            else:
-                log(f"Executing command: {dnat_command}")
-                subprocess.run(dnat_command.split(), check=True)
-                log(f"Executing command: {snat_command}")
-                subprocess.run(snat_command.split(), check=True)
+            log(f"Executing command: {dnat_command}")
+            subprocess.run(dnat_command.split(), check=True)
+            log(f"Executing command: {snat_command}")
+            subprocess.run(snat_command.split(), check=True)
 
-def cleanup_dnat_snat_rules(config, test_mode):
+def cleanup_dnat_snat_rules(config):
     for app_name, app_config in config.items():
         if app_config['destination'] != "local":
             dnat_command = f"iptables -t nat -D PREROUTING -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {app_config['destination']}:{app_config['port']}"
             snat_command = f"iptables -t nat -D POSTROUTING -o {app_config['interface']} -p {app_config['protocol']} -s {app_config['destination']} --sport {app_config['port']} -j MASQUERADE"
-            if test_mode:
-                subprocess.run(["echo", "Mock command: ", *dnat_command.split()], check=True)
-                subprocess.run(["echo", "Mock command: ", *snat_command.split()], check=True)
-            else:
-                log(f"Executing command: {dnat_command}")
-                subprocess.run(dnat_command.split(), check=True)
-                log(f"Executing command: {snat_command}")
-                subprocess.run(snat_command.split(), check=True)
+            log(f"Executing command: {dnat_command}")
+            subprocess.run(dnat_command.split(), check=True)
+            log(f"Executing command: {snat_command}")
+            subprocess.run(snat_command.split(), check=True)
 
 def setup_stealthy_ports():
     if args.routing_type == 'iptables':
@@ -453,7 +445,6 @@ def init_vars(args):
 def parse_args():
     parser = argparse.ArgumentParser(description="Server Application")
     parser.add_argument('-c', '--config', type=str, default='config.yaml', help='Path to the configuration file. If omitted, `config.yaml` in the current directory is used by default')
-    parser.add_argument('-t', '--test', action='store_true', help='Enable test mode to mock iptables commands')
     parser.add_argument('--http-port', type=int, default=8080, help='Port to run the HTTP server on (default: 8080)')
     parser.add_argument('--https-port', type=int, default=8443, help='Port to run the HTTPS server on (default: 8443)')
     parser.add_argument('--cert', type=str, help='Path to the SSL certificate file. This can be server certificate alone, or a bundle of (1) server, (2) intermediary and (3) root CA certificate, in this order, like TLS expects it.')
@@ -467,25 +458,25 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def shutdown_servers(http_server, https_server, sessions, config, test_mode, stealthy_ports_commands):
+def shutdown_servers(http_server, https_server, sessions, config, stealthy_ports_commands):
     log("Server is shutting down...")
     http_server.shutdown()
     https_server.shutdown()
     if args.cleanup:
-        cleanup_firewall(sessions, test_mode)
-    cleanup_dnat_snat_rules(config, test_mode)
+        cleanup_firewall(sessions)
+    cleanup_dnat_snat_rules(config)
     unset_stealthy_ports(stealthy_ports_commands)
     sys.exit(0)
 
-def signal_handler(sig, frame, http_server, https_server, sessions, config, test_mode, stealthy_ports_commands):
-    shutdown_servers(http_server, https_server, sessions, config, test_mode, stealthy_ports_commands)
+def signal_handler(sig, frame, http_server, https_server, sessions, config, stealthy_ports_commands):
+    shutdown_servers(http_server, https_server, sessions, config, stealthy_ports_commands)
 
 if __name__ == '__main__':
 
     args = parse_args()
     init_vars(args)
-    app = create_app(args.config, 'session_cache.json', args.test)
-    apply_dnat_snat_rules(app.config['config'], args.test)
+    app = create_app(args.config, 'session_cache.json')
+    apply_dnat_snat_rules(app.config['config'])
 
     # Set up iptables/nftables rules for stealthy HTTP/HTTPS server
     stealthy_ports_commands = setup_stealthy_ports()
@@ -493,16 +484,16 @@ if __name__ == '__main__':
     log(f"HTTP Server is starting on 0.0.0.0:{args.http_port}...")
     log(f"HTTPS Server is starting on 0.0.0.0:{args.https_port}...")
     
-    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test, stealthy_ports_commands))
-    signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], args.test, stealthy_ports_commands))
+    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], stealthy_ports_commands))
+    signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, app.config['sessions'], app.config['config'], stealthy_ports_commands))
     
     from threading import Thread
     
     http_server = make_server('0.0.0.0', args.http_port, app)
     https_server = make_server('0.0.0.0', args.https_port, app, ssl_context=(args.cert, args.key) if args.cert and args.key else None)
     
-    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, http_server, https_server, app.config['sessions'], app.config['config'], args.test, stealthy_ports_commands))
-    signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, http_server, https_server, app.config['sessions'], app.config['config'], args.test, stealthy_ports_commands))
+    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, http_server, https_server, app.config['sessions'], app.config['config'], stealthy_ports_commands))
+    signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, http_server, https_server, app.config['sessions'], app.config['config'], stealthy_ports_commands))
     
     http_thread = Thread(target=http_server.serve_forever)
     https_thread = Thread(target=https_server.serve_forever)
@@ -514,4 +505,4 @@ if __name__ == '__main__':
         http_thread.join()
         https_thread.join()
     except KeyboardInterrupt:
-        shutdown_servers(http_server, https_server, app.config['sessions'], app.config['config'], args.test, stealthy_ports_commands)
+        shutdown_servers(http_server, https_server, app.config['sessions'], app.config['config'], stealthy_ports_commands)
