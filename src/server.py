@@ -119,8 +119,6 @@ def create_app(config_path, session_file):
     config = load_config(config_path)
     sessions = []
     lock = Lock()
-    if test_mode:
-        log("Running in test mode. Commands will be mocked.")
 
     try:
         with open(session_file, 'r') as f:
