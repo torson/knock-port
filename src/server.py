@@ -178,7 +178,7 @@ def add_iptables_rule(command):
     if not iptables_rule_exists(command, True):
         execute_command(command)
 
-def delete_iptables_rule(command, test_mode=False):
+def delete_iptables_rule(command):
     if iptables_rule_exists(command):
         command = command.replace(' -A ', ' -D ')
         command = command.replace(' -I ', ' -D ')
@@ -213,7 +213,7 @@ def add_nftables_rule(command):
     if not nftables_rule_exists(command, True):
         execute_command(f"{command}")
 
-def delete_nftables_rule(command, test_mode=False):
+def delete_nftables_rule(command):
     if nftables_rule_exists(command):
         # with nftables you can't just replace 'add' with 'del' like it's done with iptables, it's much more complicated , you need to list all the rules of a table, find the one to delete, take the handle number and then delete that handle. Insane.
         # nft delete rule ip vyos_filter NAME_IN-OpenVPN-KnockPort handle $(nft -a list table ip vyos_filter | grep "ipv4-NAM-IN-OpenVPN-KnockPort-tmp-127.0.0.1" | grep "handle" | awk '{print $NF}')
@@ -226,25 +226,21 @@ def delete_nftables_rule(command, test_mode=False):
             comment = match.group(3)
             command_nft_list = f"nft -a list table ip {table}"
             command_nft_delete = f"nft delete rule ip {table} {chain} handle"
-            if test_mode:
-                log(f"Mock command: {command_nft_list} ... parsing")
-                log(f"Mock command: {command_nft_delete} HANDLE_NUM")
-            else:
-                try:
-                    command = f"{command_nft_list} | grep {comment} | grep handle" + " | awk '{print $NF}'"
-                    log(f"Executing command: {command}")
-                    handle = bash('-c', command, _tty_out=True).strip()
-                    if handle:
-                        execute_command(f"{command_nft_delete} {handle}")
-                    else:
-                        log_err("No valid handle found.")
-                except Exception as e:
-                    log_err(f"Error during operations: {e}")
+            try:
+                command = f"{command_nft_list} | grep {comment} | grep handle" + " | awk '{print $NF}'"
+                log(f"Executing command: {command}")
+                handle = bash('-c', command, _tty_out=True).strip()
+                if handle:
+                    execute_command(f"{command_nft_delete} {handle}")
+                else:
+                    log_err("No valid handle found.")
+            except Exception as e:
+                log_err(f"Error during operations: {e}")
         else:
             log_err(f"nftables : No rule match found for : {command}")
 
 
-def delete_nftables_rule(command, test_mode=False):
+def delete_nftables_rule(command):
     if nftables_rule_exists(command):
         # with nftables you can't just replace 'add' with 'del' like it's done with iptables, it's much more complicated , you need to list all the rules of a table, find the one to delete, take the handle number and then delete that handle. Insane.
         # nft delete rule ip vyos_filter NAME_IN-OpenVPN-KnockPort handle $(nft -a list table ip vyos_filter | grep "ipv4-NAM-IN-OpenVPN-KnockPort-tmp-127.0.0.1" | grep "handle" | awk '{print $NF}')
@@ -257,32 +253,28 @@ def delete_nftables_rule(command, test_mode=False):
             comment = match.group(3)
             command_nft_list = f"nft -a list table ip {table}"
             command_nft_delete = f"nft delete rule ip {table} {chain} handle"
-            if test_mode:
-                log(f"Mock command: {command_nft_list} ... parsing")
-                log(f"Mock command: {command_nft_delete} HANDLE_NUM")
-            else:
-                try:
-                    command = f"{command_nft_list} | grep {comment} | grep handle" + " | awk '{print $NF}'"
-                    log(f"Executing command: {command}")
-                    handle = bash('-c', command, _tty_out=True).strip()
-                    if handle:
-                        execute_command(f"{command_nft_delete} {handle}")
-                    else:
-                        log_err("No valid handle found.")
-                except Exception as e:
-                    log_err(f"Error during operations: {e}")
+            try:
+                command = f"{command_nft_list} | grep {comment} | grep handle" + " | awk '{print $NF}'"
+                log(f"Executing command: {command}")
+                handle = bash('-c', command, _tty_out=True).strip()
+                if handle:
+                    execute_command(f"{command_nft_delete} {handle}")
+                else:
+                    log_err("No valid handle found.")
+            except Exception as e:
+                log_err(f"Error during operations: {e}")
         else:
             log_err(f"nftables : No rule match found for : {command}")
 
-def cleanup_firewall(sessions, test_mode):
+def cleanup_firewall(sessions):
     for session in sessions:
         if args.routing_type == 'iptables':
             command = session['command'].replace(' -A ', ' -D ')
             delete_iptables_rule(command)
         elif args.routing_type == 'nftables':
-            delete_nftables_rule(session['command'], test_mode)
+            delete_nftables_rule(session['command'])
         elif args.routing_type == 'vyos':
-            delete_nftables_rule(session['command'], test_mode)
+            delete_nftables_rule(session['command'])
 
 def apply_dnat_snat_rules(config):
     for app_name, app_config in config.items():
