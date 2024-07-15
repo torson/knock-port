@@ -7,6 +7,7 @@ Type=simple
 User=root
 Group=root
 WorkingDirectory=/root/knock-port
+ExecStartPre=/root/venv/bin/pip install -r requirements.txt
 ExecStart=/root/venv/bin/python src/server.py -c src/config.yaml --routing-type vyos --nftables-chain-input NAME_IN-OpenVPN-KnockPort --http-port 80 --https-port 443 --cert /config/auth/easy-rsa/pki/issued/vpn.example.com.crt --key /config/auth/easy-rsa/pki/private/vpn.example.com.key
 Restart=always
 Environment="PATH=/root/venv/bin"
