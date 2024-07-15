@@ -87,7 +87,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type):
         port_to_open = config[app_name]['port']
         if access_key_type == "http":
             log(f"Opening http port {port_to_open} for {client_ip} on {interface} for 5s")
-            duration = 60
+            duration = config[app_name]['phase2_https_duration']
             protocol = "tcp"
             port_to_open = args.https_port
         else:

@@ -40,12 +40,12 @@ class TestServer(unittest.TestCase):
     def test_two_phase_process(self):
         # Phase 1: HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}',
+            requests.post(f'http://localhost:{self.http_port}/phase-1',
                           data={'app': 'test_app', 'access_key': 'test_secret_http'},
                           timeout=1)
 
         # Phase 2: HTTPS request
-        response = requests.post(f'https://localhost:{self.https_port}/secure',
+        response = requests.post(f'https://localhost:{self.https_port}/phase-2',
                                  data={'app': 'test_app', 'access_key': 'test_secret_https'},
                                  verify=False,  # Disable SSL verification for testing
                                  timeout=5)
@@ -83,11 +83,11 @@ class TestServer(unittest.TestCase):
     def test_session_expiration(self):
         # Perform the two-phase process
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}',
+            requests.post(f'http://localhost:{self.http_port}/phase-1',
                           data={'app': 'test_app', 'access_key': 'test_secret_http'},
                           timeout=1)
 
-        requests.post(f'https://localhost:{self.https_port}/secure',
+        requests.post(f'https://localhost:{self.https_port}/phase-2',
                       data={'app': 'test_app', 'access_key': 'test_secret_https'},
                       verify=False,
                       timeout=5)
@@ -123,13 +123,13 @@ class TestServer(unittest.TestCase):
     def test_invalid_access_key(self):
         # HTTP request with invalid key (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}',
+            requests.post(f'http://localhost:{self.http_port}/phase-1',
                           data={'app': 'test_app', 'access_key': 'invalidkey'},
                           timeout=1)
 
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.post(f'https://localhost:{self.https_port}/secure',
+            requests.post(f'https://localhost:{self.https_port}/phase-2',
                           data={'app': 'test_app', 'access_key': 'test_secret_https'},
                           verify=False,
                           timeout=1)
@@ -141,13 +141,13 @@ class TestServer(unittest.TestCase):
     def test_invalid_app_name(self):
         # HTTP request with invalid app name (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}',
+            requests.post(f'http://localhost:{self.http_port}/phase-1',
                           data={'app': 'invalidapp', 'access_key': 'test_secret_http'},
                           timeout=1)
 
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.post(f'https://localhost:{self.https_port}/secure',
+            requests.post(f'https://localhost:{self.https_port}/phase-2',
                           data={'app': 'test_app', 'access_key': 'test_secret_https'},
                           verify=False,
                           timeout=1)
@@ -159,11 +159,11 @@ class TestServer(unittest.TestCase):
     def test_missing_data(self):
         # HTTP request with missing data (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}', data={}, timeout=1)
+            requests.post(f'http://localhost:{self.http_port}/phase-1', data={}, timeout=1)
 
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.post(f'https://localhost:{self.https_port}/secure',
+            requests.post(f'https://localhost:{self.https_port}/phase-2',
                           data={'app': 'test_app', 'access_key': 'test_secret_https'},
                           verify=False,
                           timeout=1)
@@ -175,17 +175,17 @@ class TestServer(unittest.TestCase):
     def test_http_get_request(self):
         # HTTP GET request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.get(f'http://localhost:{self.http_port}', timeout=1)
+            requests.get(f'http://localhost:{self.http_port}/phase-1', timeout=1)
 
     def test_valid_http_invalid_https_app_name(self):
         # Valid HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}',
+            requests.post(f'http://localhost:{self.http_port}/phase-1',
                           data={'app': 'test_app', 'access_key': 'test_secret_http'},
                           timeout=1)
 
         # Invalid HTTPS request (invalid app_name)
-        response = requests.post(f'https://localhost:{self.https_port}/secure',
+        response = requests.post(f'https://localhost:{self.https_port}/phase-2',
                                  data={'app': 'invalid_app', 'access_key': 'test_secret_https'},
                                  verify=False,
                                  timeout=5)
@@ -198,12 +198,12 @@ class TestServer(unittest.TestCase):
     def test_valid_http_invalid_https_access_key(self):
         # Valid HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}',
+            requests.post(f'http://localhost:{self.http_port}/phase-1',
                           data={'app': 'test_app', 'access_key': 'test_secret_http'},
                           timeout=1)
 
         # Invalid HTTPS request (invalid access_key)
-        response = requests.post(f'https://localhost:{self.https_port}/secure',
+        response = requests.post(f'https://localhost:{self.https_port}/phase-2',
                                  data={'app': 'test_app', 'access_key': 'invalid_key'},
                                  verify=False,
                                  timeout=5)
