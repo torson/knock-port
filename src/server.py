@@ -21,7 +21,7 @@ from gevent import monkey
 monkey.patch_all()
 
 app = Flask(__name__)
-app.config['WSGI_READ_TIMEOUT'] = 5
+app.config['WSGI_READ_TIMEOUT'] = 30
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -68,7 +68,7 @@ def manage_sessions(session_file, sessions, lock):
                     delete_nftables_rule(session['command'])
         time.sleep(1)
 
-def handle_request(config, sessions, lock, session_file, port_to_open, access_key_type):
+def handle_request(config, sessions, lock, session_file, access_key_type):
     log(f"Received request from {request.remote_addr}")
     data = request.form
     log(f"Received data: {dict(data)}")
@@ -84,10 +84,12 @@ def handle_request(config, sessions, lock, session_file, port_to_open, access_ke
     log(f"Client IP: {client_ip}")
     if app_name in config and access_key in config[app_name][f'access_key_{access_key_type}']:
         interface = config[app_name]['interface']
+        port_to_open = config[app_name]['port']
         if access_key_type == "http":
             log(f"Opening http port {port_to_open} for {client_ip} on {interface} for 5s")
             duration = 60
             protocol = "tcp"
+            port_to_open = args.https_port
         else:
             duration = config[app_name]['duration']
             protocol = config[app_name]['protocol']
@@ -142,15 +144,16 @@ def create_app(config_path, session_file):
             log("Aborting GET request with 404")
             abort(404)
         elif request.method == 'POST':
-            return handle_request(config, sessions, lock, session_file, args.https_port, 'http')
+            return handle_request(config, sessions, lock, session_file, 'http')
 
     @app.route('/phase-2', methods=['POST'])
     def handle_https_request():
-        app_name = request.form.get('app')
-        if app_name not in config:
-            log_err(f"Invalid app name: {app_name}")
-            abort(503)
-        return handle_request(config, sessions, lock, session_file, config[app_name]['port'], 'https')
+        log(f"Received HTTPS {request.method} request from {request.remote_addr}")
+        if request.method == 'GET':
+            log("Aborting GET request with 404")
+            abort(404)
+        elif request.method == 'POST':
+            return handle_request(config, sessions, lock, session_file, 'https')
 
     app.config['config'] = config
     app.config['sessions'] = sessions
