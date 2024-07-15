@@ -21,7 +21,7 @@ from gevent import monkey
 monkey.patch_all()
 
 app = Flask(__name__)
-app.config['WSGI_READ_TIMEOUT'] = 30
+app.config['WSGI_READ_TIMEOUT'] = 5
 
 pp = pprint.PrettyPrinter(indent=4)
 
