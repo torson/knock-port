@@ -17,7 +17,11 @@ from pprint import pprint
 import pprint
 from sh import bash
 
+from gevent import monkey
+monkey.patch_all()
+
 app = Flask(__name__)
+app.config['WSGI_READ_TIMEOUT'] = 5
 
 pp = pprint.PrettyPrinter(indent=4)
 
