@@ -14,8 +14,8 @@ import requests
 
 ## testing curl commands
 #  > 2 different requests need to be made one after another
-# curl -d 'app=test_app&access_key=test_secret_http' http://localhost:8080 -v
-# curl -d 'app=test_app&access_key=test_secret_https' https://localhost:8443/secure -v -k
+# curl -d 'app=test_app&access_key=test_secret_http' http://localhost:8080/phase-1 -v
+# curl -d 'app=test_app&access_key=test_secret_https' https://localhost:8443/phase-2 -v -k
 
 class TestServer(unittest.TestCase):
     @classmethod
