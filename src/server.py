@@ -4,7 +4,7 @@ import yaml
 import time
 import sys
 import signal
-from flask import Flask, request, abort, after_this_request
+from flask import Flask, request, abort
 from werkzeug.serving import make_server
 from threading import Thread, Lock
 import json
@@ -17,12 +17,7 @@ from pprint import pprint
 import pprint
 from sh import bash
 
-from gevent import monkey
-monkey.patch_all()
-
 app = Flask(__name__)
-app.config['WSGI_READ_TIMEOUT'] = 5
-
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -489,7 +484,9 @@ if __name__ == '__main__':
     from threading import Thread
     
     http_server = make_server('0.0.0.0', args.http_port, app)
+    http_server.timeout = 5
     https_server = make_server('0.0.0.0', args.https_port, app, ssl_context=(args.cert, args.key) if args.cert and args.key else None)
+    https_server.timeout = 5
     
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, http_server, https_server, app.config['sessions'], app.config['config'], stealthy_ports_commands))
     signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, http_server, https_server, app.config['sessions'], app.config['config'], stealthy_ports_commands))
