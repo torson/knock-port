@@ -3,3 +3,4 @@
 *.log
 session_cache.json
 src/*.yaml
+src/knock-port.service
