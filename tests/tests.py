@@ -177,11 +177,21 @@ class TestServer(unittest.TestCase):
         with self.assertRaises(requests.exceptions.Timeout):
             requests.get(f'http://localhost:{self.http_port}/phase-1', timeout=1)
 
-    def test_connection_timeout(self):
-        # Test connection timeout
+    def test_connection_timeout_get(self):
+        # Test connection timeout for GET request
         start_time = time.time()
         with self.assertRaises(requests.exceptions.ConnectionError):
             requests.get(f'http://localhost:{self.http_port}/phase-1', timeout=10)
+        end_time = time.time()
+        duration = end_time - start_time
+        self.assertGreater(duration, 5)
+        self.assertLess(duration, 6)  # Add a small buffer for overhead
+
+    def test_connection_timeout_post(self):
+        # Test connection timeout for POST request
+        start_time = time.time()
+        with self.assertRaises(requests.exceptions.ConnectionError):
+            requests.post(f'http://localhost:{self.http_port}/phase-1', timeout=10)
         end_time = time.time()
         duration = end_time - start_time
         self.assertGreater(duration, 5)

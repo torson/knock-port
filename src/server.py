@@ -4,7 +4,7 @@ import yaml
 import time
 import sys
 import signal
-from flask import Flask, request, abort
+from flask import Flask, request, abort, after_this_request
 from werkzeug.serving import make_server
 from threading import Thread, Lock
 import json
@@ -22,6 +22,15 @@ monkey.patch_all()
 
 app = Flask(__name__)
 app.config['WSGI_READ_TIMEOUT'] = 5
+
+@app.after_request
+def close_connection(response):
+    @after_this_request
+    def close(response):
+        if response.status_code >= 200 and response.status_code < 400:
+            response.close()
+        return response
+    return response
 
 pp = pprint.PrettyPrinter(indent=4)
 
