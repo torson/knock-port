@@ -79,13 +79,14 @@ def handle_request(config, sessions, lock, session_file, port_to_open, access_ke
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
     log(f"Client IP: {client_ip}")
     if app_name in config and access_key in config[app_name][f'access_key_{access_key_type}']:
-        protocol = config[app_name]['protocol']
         interface = config[app_name]['interface']
         if access_key_type == "http":
             log(f"Opening http port {port_to_open} for {client_ip} on {interface} for 5s")
-            duration = 5
+            duration = 60
+            protocol = "tcp"
         else:
             duration = config[app_name]['duration']
+            protocol = config[app_name]['protocol']
             log(f"Opening {app_name} {protocol} port {port_to_open} for {client_ip} on {interface} for {duration}s")
         if args.routing_type == 'iptables':
             command = f"iptables -I INPUT -i {interface} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
@@ -130,7 +131,7 @@ def create_app(config_path, session_file):
     session_manager.daemon = True
     session_manager.start()
 
-    @app.route('/', methods=['GET', 'POST'])
+    @app.route('/phase-1', methods=['GET', 'POST'])
     def handle_http_request():
         log(f"Received HTTP {request.method} request from {request.remote_addr}")
         if request.method == 'GET':
@@ -139,7 +140,7 @@ def create_app(config_path, session_file):
         elif request.method == 'POST':
             return handle_request(config, sessions, lock, session_file, args.https_port, 'http')
 
-    @app.route('/secure', methods=['POST'])
+    @app.route('/phase-2', methods=['POST'])
     def handle_https_request():
         app_name = request.form.get('app')
         if app_name not in config:
@@ -409,18 +410,18 @@ def init_vars(args):
             args.nftables_table = "vyos_filter"
         log(f"nftables_table = {args.nftables_table}")
         if not args.nftables_chain_input:
-            # chain used for KnockPort service allow rules , 
+            # chain used for KnockPort service allow rules
             # if you add a chain IN-KnockPort with 'set firewall ipv4 name IN-KnockPort' then that is set into table vyos_filter (check with 'nft list ruleset')
             # and the actual name of the chain becomes NAME_IN-KnockPort
             args.nftables_chain_input = "NAME_IN-KnockPort"
         nftables_chain_input = args.nftables_chain_input[len("NAME_"):]
         log(f"NOTE: Assuming you created chain {nftables_chain_input} with something like:")
-        log(f"          set firewall ipv4 name {nftables_chain_input} default-action drop")
+        log(f"          set firewall ipv4 name {nftables_chain_input} default-action continue")
         log(f"          set firewall ipv4 input filter rule 20 action jump")
         log(f"          set firewall ipv4 input filter rule 20 jump-target {nftables_chain_input}")
         log(f"      And added drop rule for the service port(s)")
         log(f"          set firewall ipv4 name {nftables_chain_input} rule 100 action drop")
-        log(f"          set firewall ipv4 name {nftables_chain_input} rule 100 protocol tcp")
+        log(f"          set firewall ipv4 name {nftables_chain_input} rule 100 protocol _SERVICE_PROTOCOL_")
         log(f"          set firewall ipv4 name {nftables_chain_input} rule 100 destination port _SERVICE_PORT_")
         log(f"nftables_chain_input = {args.nftables_chain_input}")
         if not args.nftables_chain_default_input:
