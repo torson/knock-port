@@ -177,6 +177,16 @@ class TestServer(unittest.TestCase):
         with self.assertRaises(requests.exceptions.Timeout):
             requests.get(f'http://localhost:{self.http_port}/phase-1', timeout=1)
 
+    def test_connection_timeout(self):
+        # Test connection timeout
+        start_time = time.time()
+        with self.assertRaises(requests.exceptions.ConnectionError):
+            requests.get(f'http://localhost:{self.http_port}/phase-1', timeout=10)
+        end_time = time.time()
+        duration = end_time - start_time
+        self.assertGreater(duration, 5)
+        self.assertLess(duration, 6)  # Add a small buffer for overhead
+
     def test_valid_http_invalid_https_app_name(self):
         # Valid HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
