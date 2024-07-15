@@ -23,13 +23,6 @@ monkey.patch_all()
 app = Flask(__name__)
 app.config['WSGI_READ_TIMEOUT'] = 5
 
-@app.after_request
-def close_connection(response):
-    @after_this_request
-    def close(response):
-        response.close()
-        return response
-    return response
 
 pp = pprint.PrettyPrinter(indent=4)
 
