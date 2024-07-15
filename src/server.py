@@ -27,8 +27,7 @@ app.config['WSGI_READ_TIMEOUT'] = 5
 def close_connection(response):
     @after_this_request
     def close(response):
-        if response.status_code >= 200 and response.status_code < 400:
-            response.close()
+        response.close()
         return response
     return response
 
