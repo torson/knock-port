@@ -152,7 +152,6 @@ def create_app(config_path, session_file):
         elif request.method == 'POST':
             return handle_request(config, sessions, lock, session_file, 'https')
 
-    app.config['config'] = config
     app.config['sessions'] = sessions
     return app
 
