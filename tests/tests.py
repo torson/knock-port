@@ -40,7 +40,7 @@ class TestServer(unittest.TestCase):
     def test_two_phase_process(self):
         # Phase 1: HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}{self.config["http_post_path"]}',
+            requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
                           data={'app': 'test_app', 'access_key': 'test_secret_http'},
                           timeout=1)
 
@@ -87,7 +87,7 @@ class TestServer(unittest.TestCase):
                           data={'app': 'test_app', 'access_key': 'test_secret_http'},
                           timeout=1)
 
-        requests.post(f'https://localhost:{self.https_port}{self.config["https_post_path"]}',
+        requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
                       data={'app': 'test_app', 'access_key': 'test_secret_https'},
                       verify=False,
                       timeout=5)
@@ -181,7 +181,7 @@ class TestServer(unittest.TestCase):
         # Test connection timeout for GET request
         start_time = time.time()
         with self.assertRaises(requests.exceptions.ReadTimeout):
-            requests.get(f'http://localhost:{self.http_port}{self.config["http_post_path"]}', timeout=5)
+            requests.get(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}', timeout=5)
         end_time = time.time()
         duration = end_time - start_time
         self.assertGreater(duration, 5)
@@ -191,7 +191,7 @@ class TestServer(unittest.TestCase):
         # Test connection timeout for POST request
         start_time = time.time()
         with self.assertRaises(requests.exceptions.ReadTimeout):
-            requests.post(f'http://localhost:{self.http_port}{self.config["http_post_path"]}', timeout=5)
+            requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}', timeout=5)
         end_time = time.time()
         duration = end_time - start_time
         self.assertGreater(duration, 5)
