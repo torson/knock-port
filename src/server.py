@@ -313,12 +313,12 @@ def setup_stealthy_ports(config):
         # nftables doesn't have string module like iptables, so we need to match hex characters on exact positions inside the TCP packet payload
         http_post_phase1_hex_string, http_post_phase1_hex_string_bit_length = string_to_hex_and_bit_length(f"POST {app.config['config']['http_post_path']}")
         stealthy_ports_commands = [
-            # we're adding rules with insert so the order will be opposite to the order here
+            # we're adding rules with insert so the final order will be opposite of the order here
             "echo Drop incoming packets to HTTP port",
                 f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_input} index 0 tcp dport {args.http_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-drop'",
             "echo Allow incoming packets to HTTP port",
                 # @ih,0,N from here : https://manpages.debian.org/bookworm/nftables/nft.8.en.html#RAW_PAYLOAD_EXPRESSION
-                f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_input} index 0 tcp dport {args.http_port} @ih,0,{http_post_phase1_hex_string_bit_length} == 0x{http_post_phase1_hex_string} counter accept comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-accept-POST-path-0x{http_post_phase1_hex_string}'"
+                f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_input} index 0 tcp dport {args.http_port} @ih,0,{http_post_phase1_hex_string_bit_length} == 0x{http_post_phase1_hex_string} counter accept comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-POST-path-0x{http_post_phase1_hex_string}-accept'"
             "echo Drop outgoing traffic from KnockPort HTTP port , allow only TCP packets for initial three-way TCP handshake so web-server is able to handle the request . Client will not receive a HTTP response",
                 f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_output} index 0 tcp sport {args.http_port} counter drop comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-drop'",
                 f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_output} index 0 tcp sport {args.http_port} 'tcp flags & (syn|ack) == syn|ack' counter accept comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-syn-ack-accept'"
@@ -350,11 +350,10 @@ def setup_stealthy_ports(config):
     elif args.routing_type == 'vyos':
         stealthy_ports_commands.append("echo Drop incoming packets to HTTPS port. Per IP allow rules will be created on request to HTTP port")
         # with VyOS we're handling the jump to the separate args.nftables_chain_input
-        jump_command = f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_input} counter jump {args.nftables_chain_input} comment 'ipv4-INP-filter-20'"
+        jump_command = f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_input} counter jump {args.nftables_chain_input} comment 'none'"
         pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+)\s+\S+\s+jump\s+(\S+)\s+comment\s.+'
         jump_command_handle = nftables_rule_exists(jump_command, False, pattern)
         if jump_command_handle:
-            # add_nftables_rule(f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_input} index {jump_command_handle} tcp dport {args.https_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.https_port}-drop'")
             stealthy_ports_commands.append(f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_input} handle {jump_command_handle} tcp dport {args.https_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.https_port}-drop'")
         else:
             stealthy_ports_commands.append(f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_input} index 0 tcp dport {args.https_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.https_port}-drop'")
