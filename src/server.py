@@ -133,7 +133,7 @@ def create_app(config_path, session_file):
     session_manager.daemon = True
     session_manager.start()
 
-    @app.route('/phase-1', methods=['GET', 'POST'])
+    @app.route(app.config['config']['http_post_path'], methods=['GET', 'POST'])
     def handle_http_request():
         log(f"Received HTTP {request.method} request from {request.remote_addr}")
         if request.method == 'GET':
@@ -142,7 +142,7 @@ def create_app(config_path, session_file):
         elif request.method == 'POST':
             return handle_request(config, sessions, lock, session_file, 'http')
 
-    @app.route('/phase-2', methods=['GET', 'POST'])
+    @app.route(app.config['config']['https_post_path'], methods=['GET', 'POST'])
     def handle_https_request():
         log(f"Received HTTPS {request.method} request from {request.remote_addr}")
         if request.method == 'GET':
@@ -311,7 +311,7 @@ def setup_stealthy_ports(config):
     if args.routing_type == 'nftables' or args.routing_type == 'vyos':
         # setting common stuff for types nftables and vyos
         # nftables doesn't have string module like iptables, so we need to match hex characters on exact positions inside the TCP packet payload
-        http_post_phase1_hex_string, http_post_phase1_hex_string_bit_length = string_to_hex_and_bit_length(f"POST /phase-1")
+        http_post_phase1_hex_string, http_post_phase1_hex_string_bit_length = string_to_hex_and_bit_length(f"POST {app.config['config']['http_post_path']}")
         stealthy_ports_commands = [
             # we're adding rules with insert so the order will be opposite to the order here
             "echo Drop incoming packets to HTTP port",
