@@ -120,6 +120,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type):
 
 def create_app(config_path, session_file):
     config = load_config(config_path)
+    app.config['config'] = config
     sessions = []
     lock = Lock()
 
