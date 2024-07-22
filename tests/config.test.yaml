@@ -1,4 +1,8 @@
 
+global:
+  http_post_path: /step-1
+  https_post_path: /step-2
+
 test_app:
   port: 1194
   access_key_http:
