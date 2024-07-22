@@ -78,18 +78,18 @@ def handle_request(config, sessions, lock, session_file, access_key_type):
     log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
     log(f"Client IP: {client_ip}")
-    if app_name in config and access_key in config[app_name][f'access_key_{access_key_type}']:
+    if app_name in config and app_name != "global" and access_key in config[app_name][f'access_key_{access_key_type}']:
         interface = config[app_name]['interface']
         port_to_open = config[app_name]['port']
         if access_key_type == "http":
-            log(f"Opening http port {port_to_open} for {client_ip} on {interface} for 5s")
             duration = config[app_name]['phase2_https_duration']
             protocol = "tcp"
             port_to_open = args.https_port
+            log(f"Opening https port {port_to_open} for {client_ip} on {interface} for 5s")
         else:
             duration = config[app_name]['duration']
             protocol = config[app_name]['protocol']
-            log(f"Opening {app_name} {protocol} port {port_to_open} for {client_ip} on {interface} for {duration}s")
+            log(f"Opening service {app_name} {protocol} port {port_to_open} for {client_ip} on {interface} for {duration}s")
         if args.routing_type == 'iptables':
             command = f"iptables -I INPUT -i {interface} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
             add_iptables_rule(command)
@@ -134,7 +134,7 @@ def create_app(config_path, session_file):
     session_manager.daemon = True
     session_manager.start()
 
-    @app.route(app.config['config']['http_post_path'], methods=['GET', 'POST'])
+    @app.route(app.config['config']['global']['http_post_path'], methods=['GET', 'POST'])
     def handle_http_request():
         log(f"Received HTTP {request.method} request from {request.remote_addr}")
         if request.method == 'GET':
@@ -143,7 +143,7 @@ def create_app(config_path, session_file):
         elif request.method == 'POST':
             return handle_request(config, sessions, lock, session_file, 'http')
 
-    @app.route(app.config['config']['https_post_path'], methods=['GET', 'POST'])
+    @app.route(app.config['config']['global']['https_post_path'], methods=['GET', 'POST'])
     def handle_https_request():
         log(f"Received HTTPS {request.method} request from {request.remote_addr}")
         if request.method == 'GET':
@@ -282,23 +282,25 @@ def cleanup_firewall(sessions):
 
 def apply_dnat_snat_rules(config):
     for app_name, app_config in config.items():
-        if app_config['destination'] != "local":
-            dnat_command = f"iptables -t nat -A PREROUTING -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {app_config['destination']}:{app_config['port']}"
-            snat_command = f"iptables -t nat -A POSTROUTING -o {app_config['interface']} -p {app_config['protocol']} -s {app_config['destination']} --sport {app_config['port']} -j MASQUERADE"
-            log(f"Executing command: {dnat_command}")
-            subprocess.run(dnat_command.split(), check=True)
-            log(f"Executing command: {snat_command}")
-            subprocess.run(snat_command.split(), check=True)
+        if app_name != "global":
+            if app_config['destination'] != "local":
+                dnat_command = f"iptables -t nat -A PREROUTING -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {app_config['destination']}:{app_config['port']}"
+                snat_command = f"iptables -t nat -A POSTROUTING -o {app_config['interface']} -p {app_config['protocol']} -s {app_config['destination']} --sport {app_config['port']} -j MASQUERADE"
+                log(f"Executing command: {dnat_command}")
+                subprocess.run(dnat_command.split(), check=True)
+                log(f"Executing command: {snat_command}")
+                subprocess.run(snat_command.split(), check=True)
 
 def cleanup_dnat_snat_rules(config):
     for app_name, app_config in config.items():
-        if app_config['destination'] != "local":
-            dnat_command = f"iptables -t nat -D PREROUTING -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {app_config['destination']}:{app_config['port']}"
-            snat_command = f"iptables -t nat -D POSTROUTING -o {app_config['interface']} -p {app_config['protocol']} -s {app_config['destination']} --sport {app_config['port']} -j MASQUERADE"
-            log(f"Executing command: {dnat_command}")
-            subprocess.run(dnat_command.split(), check=True)
-            log(f"Executing command: {snat_command}")
-            subprocess.run(snat_command.split(), check=True)
+        if app_name != "global":
+            if app_config['destination'] != "local":
+                dnat_command = f"iptables -t nat -D PREROUTING -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {app_config['destination']}:{app_config['port']}"
+                snat_command = f"iptables -t nat -D POSTROUTING -o {app_config['interface']} -p {app_config['protocol']} -s {app_config['destination']} --sport {app_config['port']} -j MASQUERADE"
+                log(f"Executing command: {dnat_command}")
+                subprocess.run(dnat_command.split(), check=True)
+                log(f"Executing command: {snat_command}")
+                subprocess.run(snat_command.split(), check=True)
 
 def string_to_hex_and_bit_length(input_string):
     # Convert string to bytes, then to hexadecimal
@@ -311,14 +313,16 @@ def setup_stealthy_ports(config):
     if args.routing_type == 'nftables' or args.routing_type == 'vyos':
         # setting common stuff for types nftables and vyos
         # nftables doesn't have string module like iptables, so we need to match hex characters on exact positions inside the TCP packet payload
-        http_post_phase1_hex_string, http_post_phase1_hex_string_bit_length = string_to_hex_and_bit_length(f"POST {app.config['config']['http_post_path']}")
+        http_post_phase1_hex_string, http_post_phase1_hex_string_bit_length = string_to_hex_and_bit_length(f"POST {app.config['config']['global']['http_post_path']}")
         stealthy_ports_commands = [
             # we're adding rules with insert so the final order will be opposite of the order here
             "echo Drop incoming packets to HTTP port",
                 f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_input} index 0 tcp dport {args.http_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-drop'",
-            "echo Allow incoming packets to HTTP port",
+            "echo Allow incoming POST /_PATH_ packets to HTTP port",
                 # @ih,0,N from here : https://manpages.debian.org/bookworm/nftables/nft.8.en.html#RAW_PAYLOAD_EXPRESSION
-                f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_input} index 0 tcp dport {args.http_port} @ih,0,{http_post_phase1_hex_string_bit_length} == 0x{http_post_phase1_hex_string} counter accept comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-POST-path-0x{http_post_phase1_hex_string}-accept'"
+                f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_input} index 0 tcp dport {args.http_port} @ih,0,{http_post_phase1_hex_string_bit_length} == 0x{http_post_phase1_hex_string} counter accept comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-POST-path-{app.config['config']['global']['http_post_path'].replace('/', '_')}-accept'",
+            "echo Allow incoming SYN packets to HTTP port for initial three-way TCP handshake",
+                f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_input} index 0 tcp dport {args.http_port} 'tcp flags & (fin|syn|rst|ack) == syn' counter accept comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-SYN-accept'",
             "echo Drop outgoing traffic from KnockPort HTTP port , allow only TCP packets for initial three-way TCP handshake so web-server is able to handle the request . Client will not receive a HTTP response",
                 f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_output} index 0 tcp sport {args.http_port} counter drop comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-drop'",
                 f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_output} index 0 tcp sport {args.http_port} 'tcp flags & (syn|ack) == syn|ack' counter accept comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-syn-ack-accept'"
