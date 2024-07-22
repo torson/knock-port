@@ -28,8 +28,8 @@ class TestServer(unittest.TestCase):
 
         # Set default policies
         with open('tests/config.test.yaml', 'r') as config_file:
-            config = yaml.safe_load(config_file)
-        cls.test_app_port = config['test_app']['port']
+            cls.config = yaml.safe_load(config_file)
+        cls.test_app_port = cls.config['test_app']['port']
         cls.http_port = 8080
         cls.https_port = 8443
 
