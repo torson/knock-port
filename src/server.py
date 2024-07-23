@@ -18,8 +18,13 @@ import pprint
 from sh import bash
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_wtf import FlaskForm
+from wtforms import StringField
+from wtforms.validators import DataRequired, Length, AnyOf
 
 app = Flask(__name__)
+# app.config['SECRET_KEY'] = 'e49d5ffb-6d19-467b-bd5f-ade35f7f68d3'  # Needed for CSRF protection
+app.config['WTF_CSRF_ENABLED'] = False
 
 limiter = Limiter(
     key_func=get_remote_address,
@@ -72,20 +77,25 @@ def manage_sessions(session_file, sessions, lock):
                     delete_nftables_rule(session['command'])
         time.sleep(1)
 
+class RequestForm(FlaskForm):
+    app = StringField('app', validators=[DataRequired(), Length(min=1, max=50)])
+    access_key = StringField('access_key', validators=[DataRequired(), Length(min=10, max=50)])
+
 def handle_request(config, sessions, lock, session_file, access_key_type):
-    log(f"Received request from {request.remote_addr}")
-    data = request.form
-    log(f"Received data: {dict(data)}")
-    try:
-        app_name = data['app']
-        access_key = data['access_key']
-    except KeyError as e:
-        log_err(f"KeyError: {e}")
-        log_err("Invalid data format received")
-        abort(400, 'Invalid data format received')
-    log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
     client_ip = request.remote_addr
-    log(f"Client IP: {client_ip}")
+    log(f"Received request from {client_ip}")
+    form = RequestForm(request.form)
+    log(f"Received data: {dict(request.form)}")
+    if not form.validate():
+        for fieldName, errorMessages in form.errors.items():
+            for err in errorMessages:
+                print(f"Error in {fieldName}: {err}")
+        abort(400, 'Invalid data format received')
+
+    app_name = form.app.data
+    access_key = form.access_key.data
+    log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
+
     if app_name in config and app_name != "global" and access_key in config[app_name][f'access_key_{access_key_type}']:
         interface = config[app_name]['interface']
         port_to_open = config[app_name]['port']
@@ -139,24 +149,18 @@ def create_app(config_path, session_file):
     session_manager.daemon = True
     session_manager.start()
 
-    @app.route(app.config['config']['global']['http_post_path'], methods=['POST'])
-    @limiter.limit("10 per minute")  # Additional limit for this specific route
+    @app.route(config['global']['http_post_path'], methods=['POST'])
+    @limiter.limit(f"config['global']['step1_2_rate_limit_per_minute'] per minute")  # rate limit for this specific route
     def handle_http_request():
         log(f"Received HTTP {request.method} request from {request.remote_addr}")
-        if request.method == 'GET':
-            log("Aborting GET request with 404")
-            abort(404)
-        elif request.method == 'POST':
+        if request.method == 'POST':
             return handle_request(config, sessions, lock, session_file, 'http')
 
-    @app.route(app.config['config']['global']['https_post_path'], methods=['POST'])
-    @limiter.limit("10 per minute")  # Additional limit for this specific route
+    @app.route(config['global']['https_post_path'], methods=['POST'])
+    @limiter.limit(f"config['global']['step1_2_rate_limit_per_minute'] per minute")  # rate limit for this specific route
     def handle_https_request():
         log(f"Received HTTPS {request.method} request from {request.remote_addr}")
-        if request.method == 'GET':
-            log("Aborting GET request with 404")
-            abort(404)
-        elif request.method == 'POST':
+        if request.method == 'POST':
             return handle_request(config, sessions, lock, session_file, 'https')
 
     @app.errorhandler(500)

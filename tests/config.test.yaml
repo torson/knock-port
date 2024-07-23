@@ -2,6 +2,7 @@
 global:
   http_post_path: /step-1
   https_post_path: /step-2
+  step1_2_rate_limit_per_minute: 120
 
 test_app:
   port: 1194
