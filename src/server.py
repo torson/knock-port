@@ -22,6 +22,10 @@ from flask_wtf import FlaskForm
 from wtforms import StringField
 from wtforms.validators import DataRequired, Length, AnyOf
 
+class RequestForm(FlaskForm):
+    app = StringField('app', validators=[DataRequired(), Length(min=1, max=50)])
+    access_key = StringField('access_key', validators=[DataRequired(), Length(min=10, max=50)])
+
 app = Flask(__name__)
 # app.config['SECRET_KEY'] = 'e49d5ffb-6d19-467b-bd5f-ade35f7f68d3'  # Needed for CSRF protection
 app.config['WTF_CSRF_ENABLED'] = False
@@ -154,6 +158,8 @@ def create_app(config_path, session_file):
 
     session_manager = Thread(target=manage_sessions, args=(session_file, sessions, lock))
     stealthy_ports_monitor = Thread(target=monitor_stealthy_ports, args=(config, stealthy_ports_commands))
+    stealthy_ports_monitor.daemon = True
+    stealthy_ports_monitor.start()
     session_manager.daemon = True
     session_manager.start()
     stealthy_ports_monitor.daemon = True
