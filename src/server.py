@@ -22,10 +22,6 @@ from flask_wtf import FlaskForm
 from wtforms import StringField
 from wtforms.validators import DataRequired, Length, AnyOf
 
-class RequestForm(FlaskForm):
-    app = StringField('app', validators=[DataRequired(), Length(min=1, max=50)])
-    access_key = StringField('access_key', validators=[DataRequired(), Length(min=10, max=50)])
-
 app = Flask(__name__)
 # app.config['SECRET_KEY'] = 'e49d5ffb-6d19-467b-bd5f-ade35f7f68d3'  # Needed for CSRF protection
 app.config['WTF_CSRF_ENABLED'] = False
@@ -51,12 +47,14 @@ def load_config(config_path):
     with open(config_path, 'r') as config_file:
         return yaml.safe_load(config_file)
 
-def execute_command(command, print_command=True):
+def execute_command(command, print_command=True, print_output=True):
     if print_command:
         log(f"Executing command: {command}")
     out=str(bash('-c', command, _tty_out=True)).strip()
     if out:
-        log(out)
+        if print_output:
+            log(out)
+    return out
 
 def manage_sessions(session_file, sessions, lock):
     while True:
@@ -81,14 +79,23 @@ def manage_sessions(session_file, sessions, lock):
                     delete_nftables_rule(session['command'])
         time.sleep(1)
 
-def monitor_stealthy_ports(config, stealthy_ports_commands):
+def monitor_stealthy_ports():
+    # in case there's unintended rules change that Knock-Port relies on we reapply stealthy ports setup
+    time.sleep(5)
     while True:
-        command = "nft -a list chain ip vyos_filter VYOS_INPUT_filter | grep ipv4-IN-KnockPort-tcp-dport-8080-SYN-accept"
-        result = str(bash('-c', command, _tty_out=True)).strip()
-        if not result:
+        if args.routing_type == 'iptables':
+            command = f"iptables -n -v -L | grep ipv4-IN-KnockPort-tcp-dport-{args.http_port}-drop ; true"
+        elif args.routing_type == 'nftables' or args.routing_type == 'vyos':
+            # on VyOs if you make a firewall change it will
+            # we're just checking for this one rule since it's most important
+            command = f"nft -a list chain ip {args.nftables_table} {args.nftables_chain_default_input} | grep ipv4-IN-KnockPort-tcp-dport-{args.http_port}-drop ; true"
+        out = execute_command(command, print_command=False, print_output=False)
+        if not out:
             log("Stealthy port rule missing, reapplying stealthy ports setup.")
-            setup_stealthy_ports(config)
+            setup_stealthy_ports()
         time.sleep(5)
+
+class RequestForm(FlaskForm):
     app = StringField('app', validators=[DataRequired(), Length(min=1, max=50)])
     access_key = StringField('access_key', validators=[DataRequired(), Length(min=10, max=50)])
 
@@ -157,11 +164,10 @@ def create_app(config_path, session_file):
         log("No existing session file found. Starting fresh.")
 
     session_manager = Thread(target=manage_sessions, args=(session_file, sessions, lock))
-    stealthy_ports_monitor = Thread(target=monitor_stealthy_ports, args=(config, stealthy_ports_commands))
-    stealthy_ports_monitor.daemon = True
-    stealthy_ports_monitor.start()
     session_manager.daemon = True
     session_manager.start()
+
+    stealthy_ports_monitor = Thread(target=monitor_stealthy_ports)
     stealthy_ports_monitor.daemon = True
     stealthy_ports_monitor.start()
 
@@ -341,7 +347,7 @@ def string_to_hex_and_bit_length(input_string):
     bit_length = len(hex_representation) * 4  # Each hex digit represents 4 bits
     return hex_representation, bit_length
 
-def setup_stealthy_ports(config):
+def setup_stealthy_ports():
     if args.routing_type == 'nftables' or args.routing_type == 'vyos':
         # setting common stuff for types nftables and vyos
         # nftables doesn't have string module like iptables, so we need to match hex characters on exact positions inside the TCP packet payload
@@ -362,8 +368,10 @@ def setup_stealthy_ports(config):
 
     if args.routing_type == 'iptables':
         stealthy_ports_commands = [
-            "echo Allow incoming packets to HTTP port",
-                f"iptables -A INPUT -p tcp --dport {args.http_port} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-accept'",
+            "echo Drop incoming packets to HTTP port",
+                f"iptables -A INPUT -p tcp --dport {args.http_port} -j DROP -m comment --comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-drop'",
+            "echo Allow incoming SYN packets to HTTP port for initial three-way TCP handshake",
+                f"iptables -A INPUT -p tcp --dport {args.http_port} --tcp-flags ALL SYN -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-SYN-accept'",
             "echo Drop outgoing traffic from KnockPort HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a response from HTTP port",
                 f"iptables -A OUTPUT -p tcp --sport {args.http_port} --tcp-flags ALL SYN,ACK -j ACCEPT -m comment --comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-syn-ack-accept'",
                 f"iptables -A OUTPUT -p tcp --sport {args.http_port} -j DROP -m comment --comment 'ipv4-OUT-KnockPort-tcp-sport-{args.http_port}-drop'",
@@ -499,7 +507,7 @@ if __name__ == '__main__':
     apply_dnat_snat_rules(app.config['config'])
 
     # Set up iptables/nftables rules for stealthy HTTP/HTTPS server
-    stealthy_ports_commands = setup_stealthy_ports(app.config['config'])
+    stealthy_ports_commands = setup_stealthy_ports()
 
     log(f"HTTP Server is starting on 0.0.0.0:{args.http_port}...")
     log(f"HTTPS Server is starting on 0.0.0.0:{args.https_port}...")
