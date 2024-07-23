@@ -16,18 +16,19 @@ There are 3 ports in the procedure :
 So step-1 is to hide the setup from public, and step-2 is to secure the setup from step-1 network sniffing.
 
 ### Detailed Breakdown of the 2-step procedure
-Client (curl) sends POST request:
+1. Client (curl) sends POST request:
 
-TCP SYN to establish connection.
-TCP SYN-ACK from server (allowed by nftables rule).
-TCP ACK from client to complete the handshake.
-HTTP POST request sent over the established TCP connection (this can also be part of TCP ACK packet).
-Server receives POST request:
+- TCP SYN to establish connection.
+- TCP SYN-ACK from server (allowed by nftables rule).
+- TCP ACK from client to complete the handshake.
+- HTTP POST request sent over the established TCP connection (this can also be part of TCP ACK packet).
 
-Due to nftables rules, the server does not send an ACK back for the HTTP POST data.
-The TCP stack on the client waits for an ACK or response. As the ACK never comes there's TCP stack retransmission:
-After a timeout, the client’s TCP stack retransmits the HTTP POST request.
-This continues, following the exponential backoff strategy, until it reaches the maximum retransmission limit.
+2. Server receives POST request:
+
+- Due to nftables rules, the server host does not send an ACK back for the HTTP POST data (web server sends it, but it's dropped by the firewall).
+- The TCP stack on the client side waits for an ACK or response. As the ACK never comes there's TCP stack retransmission:
+- After a timeout, the client’s TCP stack retransmits the HTTP POST request.
+- This continues, following the exponential backoff strategy, until it reaches the maximum retransmission limit.
 
 
 ## Configuration
