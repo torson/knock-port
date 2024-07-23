@@ -77,7 +77,14 @@ def manage_sessions(session_file, sessions, lock):
                     delete_nftables_rule(session['command'])
         time.sleep(1)
 
-class RequestForm(FlaskForm):
+def monitor_stealthy_ports(config, stealthy_ports_commands):
+    while True:
+        command = "nft -a list chain ip vyos_filter VYOS_INPUT_filter | grep ipv4-IN-KnockPort-tcp-dport-8080-SYN-accept"
+        result = str(bash('-c', command, _tty_out=True)).strip()
+        if not result:
+            log("Stealthy port rule missing, reapplying stealthy ports setup.")
+            setup_stealthy_ports(config)
+        time.sleep(5)
     app = StringField('app', validators=[DataRequired(), Length(min=1, max=50)])
     access_key = StringField('access_key', validators=[DataRequired(), Length(min=10, max=50)])
 
@@ -146,8 +153,11 @@ def create_app(config_path, session_file):
         log("No existing session file found. Starting fresh.")
 
     session_manager = Thread(target=manage_sessions, args=(session_file, sessions, lock))
+    stealthy_ports_monitor = Thread(target=monitor_stealthy_ports, args=(config, stealthy_ports_commands))
     session_manager.daemon = True
     session_manager.start()
+    stealthy_ports_monitor.daemon = True
+    stealthy_ports_monitor.start()
 
     @app.route(config['global']['http_post_path'], methods=['POST'])
     @limiter.limit(f"config['global']['step1_2_rate_limit_per_minute'] per minute")  # rate limit for this specific route
