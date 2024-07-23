@@ -131,7 +131,7 @@ def create_app(config_path, session_file):
     session_manager.daemon = True
     session_manager.start()
 
-    @app.route(app.config['config']['global']['http_post_path'], methods=['GET', 'POST'])
+    @app.route(app.config['config']['global']['http_post_path'], methods=['POST'])
     def handle_http_request():
         log(f"Received HTTP {request.method} request from {request.remote_addr}")
         if request.method == 'GET':
@@ -140,7 +140,7 @@ def create_app(config_path, session_file):
         elif request.method == 'POST':
             return handle_request(config, sessions, lock, session_file, 'http')
 
-    @app.route(app.config['config']['global']['https_post_path'], methods=['GET', 'POST'])
+    @app.route(app.config['config']['global']['https_post_path'], methods=['POST'])
     def handle_https_request():
         log(f"Received HTTPS {request.method} request from {request.remote_addr}")
         if request.method == 'GET':
