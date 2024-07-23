@@ -16,8 +16,16 @@ import os
 from pprint import pprint
 import pprint
 from sh import bash
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
+
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -74,9 +82,9 @@ def handle_request(config, sessions, lock, session_file, access_key_type):
     except KeyError as e:
         log_err(f"KeyError: {e}")
         log_err("Invalid data format received")
-        abort(503)
+        abort(400, 'Invalid data format received')
     log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
-    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    client_ip = request.remote_addr
     log(f"Client IP: {client_ip}")
     if app_name in config and app_name != "global" and access_key in config[app_name][f'access_key_{access_key_type}']:
         interface = config[app_name]['interface']
@@ -132,6 +140,7 @@ def create_app(config_path, session_file):
     session_manager.start()
 
     @app.route(app.config['config']['global']['http_post_path'], methods=['POST'])
+    @limiter.limit("10 per minute")  # Additional limit for this specific route
     def handle_http_request():
         log(f"Received HTTP {request.method} request from {request.remote_addr}")
         if request.method == 'GET':
@@ -141,6 +150,7 @@ def create_app(config_path, session_file):
             return handle_request(config, sessions, lock, session_file, 'http')
 
     @app.route(app.config['config']['global']['https_post_path'], methods=['POST'])
+    @limiter.limit("10 per minute")  # Additional limit for this specific route
     def handle_https_request():
         log(f"Received HTTPS {request.method} request from {request.remote_addr}")
         if request.method == 'GET':
@@ -148,6 +158,11 @@ def create_app(config_path, session_file):
             abort(404)
         elif request.method == 'POST':
             return handle_request(config, sessions, lock, session_file, 'https')
+
+    @app.errorhandler(500)
+    def handle_500(error):
+        log("Server Error 500")
+        abort(503)
 
     app.config['sessions'] = sessions
     return app
