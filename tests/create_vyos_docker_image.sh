@@ -15,7 +15,7 @@ mkdir vyos-docker && cd vyos-docker
 curl -o vyos-${VYOS_ROLLING_VERSION}-amd64.iso https://github.com/vyos/vyos-rolling-nightly-builds/releases/download/${VYOS_ROLLING_VERSION}/vyos-${VYOS_ROLLING_VERSION}-amd64.iso
 
 mkdir rootfs
-sudo mount -o loop ../build-ami-nitopt/playbooks/files/vyos-${VYOS_ROLLING_VERSION}-amd64.iso rootfs
+sudo mount -o loop vyos-${VYOS_ROLLING_VERSION}-amd64.iso rootfs
 
 # assuming you're running Debian flavour
 sudo apt-get install -y squashfs-tools
@@ -27,6 +27,8 @@ sudo tar -C unsquashfs -c . | docker import - vyos:${VYOS_ROLLING_VERSION}
 sudo umount rootfs
 cd ..
 sudo rm -rf vyos-docker
+
+
 
 ## start the container and get to the console
 # docker run -d --rm --name vyos --privileged -v /lib/modules:/lib/modules vyos:${VYOS_ROLLING_VERSION} /sbin/init
