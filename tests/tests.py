@@ -214,6 +214,7 @@ class TestServer(unittest.TestCase):
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
+        time.sleep(5)
 
     def test_valid_http_invalid_https_access_key(self):
         # Valid HTTP request (should timeout)
@@ -232,6 +233,7 @@ class TestServer(unittest.TestCase):
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.get(f'http://localhost:{self.test_app_port}', timeout=1)
+        time.sleep(5)
 
 if __name__ == "__main__":
     unittest.main()
