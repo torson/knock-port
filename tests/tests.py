@@ -14,8 +14,8 @@ import requests
 
 ## testing curl commands
 #  > 2 different requests need to be made one after another
-# curl -d 'app=test_app&access_key=test_secret_http' http://localhost:8080/phase-1 -v
-# curl -d 'app=test_app&access_key=test_secret_https' https://localhost:8443/phase-2 -v -k
+# curl -d 'app=test_app&access_key=test_secret_http' http://localhost:8080/step-1 -v
+# curl -d 'app=test_app&access_key=test_secret_https' https://localhost:8443/step-2 -v -k
 
 class TestServer(unittest.TestCase):
     @classmethod
@@ -37,15 +37,15 @@ class TestServer(unittest.TestCase):
     def tearDownClass(cls):
         cls.client.close()
 
-    def test_two_phase_process(self):
-        # Phase 1: HTTP request (should timeout)
+    def test_two_step_process(self):
+        # Step 1: HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
                           data={'app': 'test_app', 'access_key': 'test_secret_http'},
                           timeout=1)
 
-        # Phase 2: HTTPS request
-        response = requests.post(f'https://localhost:{self.https_port}{self.config["https_post_path"]}',
+        # Step 2: HTTPS request
+        response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
                                  data={'app': 'test_app', 'access_key': 'test_secret_https'},
                                  verify=False,  # Disable SSL verification for testing
                                  timeout=5)
@@ -65,7 +65,7 @@ class TestServer(unittest.TestCase):
 
         # Test accessibility of the configured service port
         response = requests.get(f'http://localhost:{self.test_app_port}', timeout=5)
-        self.assertEqual(response.status_code, 200, f"Port {self.test_app_port} should be accessible after the two-phase process")
+        self.assertEqual(response.status_code, 200, f"Port {self.test_app_port} should be accessible after the two-step process")
 
         # Wait for the session to expire for the other tests to get clean environment
         with open('tests/config.test.yaml', 'r') as config_file:
@@ -81,9 +81,9 @@ class TestServer(unittest.TestCase):
             time.sleep(1)
 
     def test_session_expiration(self):
-        # Perform the two-phase process
+        # Perform the two-step process
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}{self.config["http_post_path"]}',
+            requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
                           data={'app': 'test_app', 'access_key': 'test_secret_http'},
                           timeout=1)
 
@@ -123,13 +123,13 @@ class TestServer(unittest.TestCase):
     def test_invalid_access_key(self):
         # HTTP request with invalid key (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}/phase-1',
+            requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
                           data={'app': 'test_app', 'access_key': 'invalidkey'},
                           timeout=1)
 
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.post(f'https://localhost:{self.https_port}/phase-2',
+            requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
                           data={'app': 'test_app', 'access_key': 'test_secret_https'},
                           verify=False,
                           timeout=1)
@@ -141,13 +141,13 @@ class TestServer(unittest.TestCase):
     def test_invalid_app_name(self):
         # HTTP request with invalid app name (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}/phase-1',
+            requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
                           data={'app': 'invalidapp', 'access_key': 'test_secret_http'},
                           timeout=1)
 
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.post(f'https://localhost:{self.https_port}/phase-2',
+            requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
                           data={'app': 'test_app', 'access_key': 'test_secret_https'},
                           verify=False,
                           timeout=1)
@@ -159,11 +159,11 @@ class TestServer(unittest.TestCase):
     def test_missing_data(self):
         # HTTP request with missing data (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}/phase-1', data={}, timeout=1)
+            requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}', data={}, timeout=1)
 
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.post(f'https://localhost:{self.https_port}/phase-2',
+            requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
                           data={'app': 'test_app', 'access_key': 'test_secret_https'},
                           verify=False,
                           timeout=1)
@@ -175,7 +175,7 @@ class TestServer(unittest.TestCase):
     def test_http_get_request(self):
         # HTTP GET request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.get(f'http://localhost:{self.http_port}{self.config["http_post_path"]}', timeout=1)
+            requests.get(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}', timeout=1)
 
     def test_connection_timeout_get(self):
         # Test connection timeout for GET request
@@ -200,12 +200,12 @@ class TestServer(unittest.TestCase):
     def test_valid_http_invalid_https_app_name(self):
         # Valid HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}{self.config["http_post_path"]}',
+            requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
                           data={'app': 'test_app', 'access_key': 'test_secret_http'},
                           timeout=1)
 
         # Invalid HTTPS request (invalid app_name)
-        response = requests.post(f'https://localhost:{self.https_port}{self.config["https_post_path"]}',
+        response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
                                  data={'app': 'invalid_app', 'access_key': 'test_secret_https'},
                                  verify=False,
                                  timeout=5)
@@ -218,12 +218,12 @@ class TestServer(unittest.TestCase):
     def test_valid_http_invalid_https_access_key(self):
         # Valid HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}{self.config["http_post_path"]}',
+            requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
                           data={'app': 'test_app', 'access_key': 'test_secret_http'},
                           timeout=1)
 
         # Invalid HTTPS request (invalid access_key)
-        response = requests.post(f'https://localhost:{self.https_port}{self.config["https_post_path"]}',
+        response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
                                  data={'app': 'test_app', 'access_key': 'invalid_key'},
                                  verify=False,
                                  timeout=5)

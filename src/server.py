@@ -82,7 +82,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type):
         interface = config[app_name]['interface']
         port_to_open = config[app_name]['port']
         if access_key_type == "http":
-            duration = config[app_name]['phase2_https_duration']
+            duration = config[app_name]['step2_https_duration']
             protocol = "tcp"
             port_to_open = args.https_port
             log(f"Opening https port {port_to_open} for {client_ip} on {interface} for 5s")
@@ -93,11 +93,8 @@ def handle_request(config, sessions, lock, session_file, access_key_type):
         if args.routing_type == 'iptables':
             command = f"iptables -I INPUT -i {interface} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
             add_iptables_rule(command)
-        elif args.routing_type == 'nftables':
-            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
-            add_nftables_rule(command)
-        elif args.routing_type == 'vyos':
-            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
+        elif args.routing_type == 'nftables' or args.routing_type == 'vyos' :
+            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'"
             add_nftables_rule(command)
         session_exists = False
         expires_at = time.time() + duration
@@ -318,7 +315,7 @@ def setup_stealthy_ports(config):
             # we're adding rules with insert so the final order will be opposite of the order here
             "echo Drop incoming packets to HTTP port",
                 f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_input} index 0 tcp dport {args.http_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-drop'",
-            "echo Allow incoming POST /_PATH_ packets to HTTP port",
+            "echo Allow incoming POST /_HTTP_PATH_ packets to HTTP port",
                 # @ih,0,N from here : https://manpages.debian.org/bookworm/nftables/nft.8.en.html#RAW_PAYLOAD_EXPRESSION
                 f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_input} index 0 tcp dport {args.http_port} @ih,0,{http_post_phase1_hex_string_bit_length} == 0x{http_post_phase1_hex_string} counter accept comment 'ipv4-IN-KnockPort-tcp-dport-{args.http_port}-POST-path-{app.config['config']['global']['http_post_path'].replace('/', '_')}-accept'",
             "echo Allow incoming SYN packets to HTTP port for initial three-way TCP handshake",
@@ -346,6 +343,7 @@ def setup_stealthy_ports(config):
     elif args.routing_type == 'nftables':
         stealthy_ports_commands.append("echo Drop incoming packets to HTTPS port. Per IP allow rules will be created on request to HTTP port")
         stealthy_ports_commands.append(f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_input} index 0 tcp dport {args.https_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.https_port}-drop'")
+
         for command in stealthy_ports_commands:
             if re.search(r"nft (add|insert) rule", command):
                 add_nftables_rule(command)
@@ -361,6 +359,7 @@ def setup_stealthy_ports(config):
             stealthy_ports_commands.append(f"nft add rule ip {args.nftables_table} {args.nftables_chain_default_input} handle {jump_command_handle} tcp dport {args.https_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.https_port}-drop'")
         else:
             stealthy_ports_commands.append(f"nft insert rule ip {args.nftables_table} {args.nftables_chain_default_input} index 0 tcp dport {args.https_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{args.https_port}-drop'")
+
         for command in stealthy_ports_commands:
             if re.search(r"nft (add|insert) rule", command):
                 add_nftables_rule(command)

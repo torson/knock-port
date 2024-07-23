@@ -15,4 +15,4 @@ test_app:
   protocol: tcp
   duration: 10
   interface: eth0
-  phase2_https_duration: 5
+  step2_https_duration: 5

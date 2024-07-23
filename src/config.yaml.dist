@@ -15,7 +15,7 @@ openvpn:
   protocol: tcp
   duration: 10
   interface: eth0
-  phase2_https_duration: 60
+  step2_https_duration: 60
 
 # mysql:
 #   port: 3306
