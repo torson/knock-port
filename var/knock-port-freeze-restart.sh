@@ -26,3 +26,22 @@ if [[ "${DIFF}" -gt "${TTL}" ]]; then
 else
     log "OK. File ${LOGFILE_PATH} is less than ${TTL}s old : ${DIFF}s"
 fi
+
+# Checking if there are ESTABLISHED connections to
+# either port 80 or 443 for some unknown reason
+# In such case we restart Knock-Port as it means there's
+# some undesired behaviour , some rouge connection
+MATCH=0
+for COUNT in {1,2,3,4} ; do
+    if [ "$MATCH" = "3" ]; then
+        log "There's established connection to the HTTP/HTTPS port within 2 seconds which is unusual"
+        log "/usr/sbin/service knock-port restart"
+        /usr/sbin/service knock-port restart
+        break
+    fi
+    log "netstat -nap | grep -P ':80 |:443 ' | grep ESTA"
+    if netstat -nap | grep -P ':80 |:443 ' | grep ESTA ; then
+        MATCH=$((MATCH+1))
+    fi
+    sleep 1
+done
