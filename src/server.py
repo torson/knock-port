@@ -127,10 +127,16 @@ def handle_request(config, sessions, lock, session_file, access_key_type):
             protocol = config[app_name]['protocol']
             log(f"Opening service {app_name} {protocol} port {port_to_open} for {client_ip} on {interface} for {duration}s")
         if args.routing_type == 'iptables':
-            command = f"iptables -I INPUT -i {interface} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
+            if config[app_name]['destination'] == "local":
+                command = f"iptables -I INPUT -i {interface} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
+            else:
+                command = f"iptables -I FORWARD -i {interface} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-FWD-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
             add_iptables_rule(command)
         elif args.routing_type == 'nftables' or args.routing_type == 'vyos' :
-            command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'"
+            if config[app_name]['destination'] == "local":
+                command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface} counter accept comment 'ipv4-IN-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'"
+            else:
+                command = f"nft insert rule ip {args.nftables_table} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} oifname {interface} counter accept comment 'ipv4-FWD-KnockPort-{interface}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'"
             add_nftables_rule(command)
         session_exists = False
         expires_at = time.time() + duration
@@ -324,10 +330,18 @@ def apply_dnat_snat_rules(config):
             if app_config['destination'] != "local":
                 dnat_command = f"iptables -t nat -A PREROUTING -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {app_config['destination']}:{app_config['port']}"
                 snat_command = f"iptables -t nat -A POSTROUTING -o {app_config['interface']} -p {app_config['protocol']} -s {app_config['destination']} --sport {app_config['port']} -j MASQUERADE"
-                log(f"Executing command: {dnat_command}")
-                subprocess.run(dnat_command.split(), check=True)
-                log(f"Executing command: {snat_command}")
-                subprocess.run(snat_command.split(), check=True)
+                if args.routing_type == 'iptables':
+                    log(f"Executing command: {dnat_command}")
+                    subprocess.run(dnat_command.split(), check=True)
+                    log(f"Executing command: {snat_command}")
+                    subprocess.run(snat_command.split(), check=True)
+                elif args.routing_type == 'nftables':
+                    dnat_command = f"nft add rule ip nat PREROUTING {app_config['protocol']} dport {app_config['port']} counter dnat to {app_config['destination']}:{app_config['port']}"
+                    snat_command = f"nft add rule ip nat POSTROUTING oif {app_config['interface']} {app_config['protocol']} sport {app_config['port']} counter masquerade"
+                    log(f"Executing command: {dnat_command}")
+                    execute_command(dnat_command)
+                    log(f"Executing command: {snat_command}")
+                    execute_command(snat_command)
 
 def cleanup_dnat_snat_rules(config):
     for app_name, app_config in config.items():
@@ -335,10 +349,18 @@ def cleanup_dnat_snat_rules(config):
             if app_config['destination'] != "local":
                 dnat_command = f"iptables -t nat -D PREROUTING -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {app_config['destination']}:{app_config['port']}"
                 snat_command = f"iptables -t nat -D POSTROUTING -o {app_config['interface']} -p {app_config['protocol']} -s {app_config['destination']} --sport {app_config['port']} -j MASQUERADE"
-                log(f"Executing command: {dnat_command}")
-                subprocess.run(dnat_command.split(), check=True)
-                log(f"Executing command: {snat_command}")
-                subprocess.run(snat_command.split(), check=True)
+                if args.routing_type == 'iptables':
+                    log(f"Executing command: {dnat_command}")
+                    subprocess.run(dnat_command.split(), check=True)
+                    log(f"Executing command: {snat_command}")
+                    subprocess.run(snat_command.split(), check=True)
+                elif args.routing_type == 'nftables':
+                    dnat_command = f"nft delete rule ip nat PREROUTING {app_config['protocol']} dport {app_config['port']} counter dnat to {app_config['destination']}:{app_config['port']}"
+                    snat_command = f"nft delete rule ip nat POSTROUTING oif {app_config['interface']} {app_config['protocol']} sport {app_config['port']} counter masquerade"
+                    log(f"Executing command: {dnat_command}")
+                    execute_command(dnat_command)
+                    log(f"Executing command: {snat_command}")
+                    execute_command(snat_command)
 
 def string_to_hex_and_bit_length(input_string):
     # Convert string to bytes, then to hexadecimal
