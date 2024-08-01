@@ -5,3 +5,4 @@ session_cache.json
 src/*.yaml
 var/knock-port.service
 *.iso
+tests/config.test.yaml

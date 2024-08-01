@@ -71,7 +71,7 @@ else
 fi
 
 # Get the test_app port from config.test.yaml
-TEST_SERVICE_PORT=$(grep port ${BASE_DIR_PATH}/tests/config.test.yaml | awk '{print $2}')
+TEST_SERVICE_PORT=$(grep port ${BASE_DIR_PATH}/tests/config.test.yaml | awk '{print $2}' | head -n 1)
 KNOCKPORT_PORT_HTTP=8080
 KNOCKPORT_PORT_HTTPS=8443
 
@@ -80,6 +80,12 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" || "${RUN_TESTS_ROUTING_TYP
     run_command docker build -f tests/Dockerfile -t port-knock-server .
 fi
 
+if ! docker ps | grep port-knock-server-backend; then
+    run_command docker run --rm -d --name port-knock-server-backend port-knock-server python -m http.server ${TEST_SERVICE_PORT}
+    export BACKEND_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' port-knock-server-backend)
+fi
+# generating tests/config.test.yaml
+envsubst < ${BASE_DIR_PATH}/tests/config.test.tmpl.yaml > ${BASE_DIR_PATH}/tests/config.test.yaml
 
 ### 1. iptables
 if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
@@ -175,7 +181,7 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
     log "### testing --routing-type vyos"
 
     export VYOS_ROLLING_VERSION=1.5-rolling-202405260021
-    bash ${BASE_DIR_PATH}/tests/create_vyos_docker_image.sh
+    bash -x ${BASE_DIR_PATH}/tests/create_vyos_docker_image.sh || exit 1
 
     # Stop and remove the Docker container
     if docker stop -t 1 port-knock-server ; then
@@ -207,6 +213,7 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
         '
 
     docker exec port-knock-server bash -c '
+            echo alias\ ll="ls\ -alF" >> ~/.bashrc
             echo "Installing python-pip3"
             echo "deb http://deb.debian.org/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list
             apt-get update
@@ -268,9 +275,11 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
         'cd /app && ~/venv/bin/python src/server.py -c tests/config.test.yaml --routing-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
     sleep 3
 
+
     # Run the tests
     run_command python ${BASE_DIR_PATH}/tests/tests.py
 
     run_command docker stop -t 1 port-knock-server
+    run_command docker stop -t 1 port-knock-server-backend
 
 fi
