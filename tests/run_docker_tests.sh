@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RUN_TESTS_ROUTING_TYPE_IPTABLES=false
+RUN_TESTS_ROUTING_TYPE_IPTABLES=true
 RUN_TESTS_ROUTING_TYPE_NFTABLES=true
 RUN_TESTS_ROUTING_TYPE_VYOS=false
 
@@ -70,8 +70,7 @@ else
     log "${BASE_DIR_PATH}/tests/knock-port.testing.pem already exists."
 fi
 
-# generating tests/config.test.yaml
-envsubst < ${BASE_DIR_PATH}/tests/config.test.tmpl.yaml > ${BASE_DIR_PATH}/tests/config.test.yaml
+cp ${BASE_DIR_PATH}/tests/config.test.tmpl.yaml ${BASE_DIR_PATH}/tests/config.test.yaml
 
 # Get the test_app port from config.test.yaml
 TEST_SERVICE_PORT_LOCAL=$(grep -v -P "^ *#" ${BASE_DIR_PATH}/tests/config.test.yaml | grep -A 5 test_app_local | grep port: | awk '{print $2}')
@@ -90,6 +89,9 @@ if docker stop -t 1 port-knock-server-backend ; then
 fi
 run_command docker run --rm -d --name port-knock-server-backend port-knock-server python -m http.server ${TEST_SERVICE_PORT_NONLOCAL}
 export BACKEND_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' port-knock-server-backend)
+
+# generating tests/config.test.yaml
+envsubst < ${BASE_DIR_PATH}/tests/config.test.tmpl.yaml > ${BASE_DIR_PATH}/tests/config.test.yaml
 
 ### 1. iptables
 if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
@@ -122,12 +124,12 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
         'python src/server.py -c tests/config.test.yaml --routing-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
     sleep 3
 
-    # curl -m 1 -d 'app=test_app_local&access_key=test_secret_http' http://localhost:8080/step-1 -v
-    # curl -m 1 -d 'app=test_app_local&access_key=test_secret_https' https://localhost:8443/step-2 -v -k
-    # curl -m 1 http://localhost:1194/step-1 -v
-    # curl -m 1 -d 'app=test_app_nonlocal&access_key=test_secret_http' http://localhost:8080/step-1 -v
-    # curl -m 1 -d 'app=test_app_nonlocal&access_key=test_secret_https' https://localhost:8443/step-2 -v -k
-    # curl -m 1 http://localhost:1294/step-1 -v
+    # curl -m 1 -d 'app=test_app_local&access_key=test_secret_http' http://localhost:8080/step-1
+    # curl -m 1 -d 'app=test_app_local&access_key=test_secret_https' https://localhost:8443/step-2 -k
+    # curl -m 1 http://localhost:1194/
+    # curl -m 1 -d 'app=test_app_nonlocal&access_key=test_secret_http' http://localhost:8080/step-1
+    # curl -m 1 -d 'app=test_app_nonlocal&access_key=test_secret_https' https://localhost:8443/step-2 -k
+    # curl -m 1 http://localhost:1294/
 
     # Run the tests , needs to be run from repo root
     run_command python tests/tests.py

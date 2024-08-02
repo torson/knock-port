@@ -3,8 +3,8 @@ global:
   http_post_path: /step-1
   https_post_path: /step-2
   step1_2_rate_limit_per_minute: 120
-  interface_in: eth0
-  interface_out: eth0
+  interface_ext: eth0
+  interface_int: eth0  # used in case of non-local service
 
 test_app_local:
   port: 1194
