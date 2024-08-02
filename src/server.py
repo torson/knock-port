@@ -87,11 +87,13 @@ def manage_sessions(session_file, sessions, lock):
                     delete_nftables_rule(session['command'])
         time.sleep(1)
 
-def monitor_stealthy_ports(config):
+def monitor_stealthy_ports(config, stop_event):
     # in case there's unintended rules change that Knock-Port relies on we reapply stealthy ports setup
     time.sleep(5)
     while True:
-        if args.routing_type == 'iptables':
+        if stop_event.is_set():
+            break
+        elif args.routing_type == 'iptables':
             command = f"iptables -n -v -L | grep ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{args.http_port}-drop ; true"
         elif args.routing_type == 'nftables' or args.routing_type == 'vyos':
             # on VyOs if you make a firewall change it will reset all chains to what is set up with set "set" commands
@@ -191,7 +193,9 @@ def create_app(config_path, session_file):
     session_manager.daemon = True
     session_manager.start()
     log(f"config_path: {config_path}")
-    stealthy_ports_monitor = Thread(target=monitor_stealthy_ports, args=(config,))
+    stop_event = threading.Event()
+    stealthy_ports_monitor = Thread(target=monitor_stealthy_ports, args=(config, stop_event))
+    app.config['stop_event'] = stop_event
     stealthy_ports_monitor.daemon = True
     stealthy_ports_monitor.start()
 
@@ -690,6 +694,10 @@ def shutdown_servers(http_server, https_server, sessions, config, stealthy_ports
     sys.exit(0)
 
 def signal_handler(sig, frame, http_server, https_server, sessions, config, stealthy_ports_commands):
+    stop_event = app.config.get('stop_event')
+    if stop_event:
+        stop_event.set()
+        time.sleep(1)
     shutdown_servers(http_server, https_server, sessions, config, stealthy_ports_commands)
 
 if __name__ == '__main__':
