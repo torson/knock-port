@@ -19,7 +19,7 @@ else
     SCRIPT_PATH=$(pwd)/$0
 fi
 
-DEPLOY_SCRIPT=$(echo $SCRIPT_PATH | sed 's/\.run\././')
+SCRIPT=$(echo $SCRIPT_PATH | sed 's/\.run\././')
 LOG_FILE_PATH=/var/log/$(basename ${SCRIPT_PATH}).log
 
 # checking for logdir existence
@@ -28,12 +28,12 @@ if [ ! -d $(dirname ${LOG_FILE_PATH}) ]; then
 fi
 
 if [ "${OUTPUT_TO_STDOUT_AND_LOGFILE}" = "true" ]; then
-    ${DEPLOY_SCRIPT} $@ 2>&1 | tee -a ${LOG_FILE_PATH}
+    bash ${SCRIPT} $@ 2>&1 | tee -a ${LOG_FILE_PATH}
     FIRST_COMMAND_STATUS=${PIPESTATUS[0]}
     if [ "${FIRST_COMMAND_STATUS}" != "0" ]; then
         echo "ERROR! Deployment script exited with error.. "
         exit 1
     fi
 else
-    ${DEPLOY_SCRIPT} $@ >> ${LOG_FILE_PATH} 2>&1
+    bash ${SCRIPT} $@ >> ${LOG_FILE_PATH} 2>&1
 fi

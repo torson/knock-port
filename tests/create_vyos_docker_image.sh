@@ -1,9 +1,12 @@
 #!/bin/bash
+set -e
 
 if [ -z ${VYOS_ROLLING_VERSION} ]; then
     echo "ERROR: envvar VYOS_ROLLING_VERSION needs to be set , exiting ..."
     exit 1
 fi
+
+cd $(dirname $0)
 
 if docker images | grep vyos | grep ${VYOS_ROLLING_VERSION} ; then
     echo "Docker image is already in the local cache"
@@ -12,7 +15,11 @@ fi
 
 # https://docs.vyos.io/en/latest/installation/virtual/docker.html
 mkdir vyos-docker && cd vyos-docker
-curl -o vyos-${VYOS_ROLLING_VERSION}-amd64.iso https://github.com/vyos/vyos-rolling-nightly-builds/releases/download/${VYOS_ROLLING_VERSION}/vyos-${VYOS_ROLLING_VERSION}-amd64.iso
+if [ -f ../vyos-${VYOS_ROLLING_VERSION}-amd64.iso ]; then
+    ln -s ../vyos-${VYOS_ROLLING_VERSION}-amd64.iso vyos-${VYOS_ROLLING_VERSION}-amd64.iso
+else
+    curl -o vyos-${VYOS_ROLLING_VERSION}-amd64.iso https://github.com/vyos/vyos-rolling-nightly-builds/releases/download/${VYOS_ROLLING_VERSION}/vyos-${VYOS_ROLLING_VERSION}-amd64.iso
+fi
 
 mkdir rootfs
 sudo mount -o loop vyos-${VYOS_ROLLING_VERSION}-amd64.iso rootfs
