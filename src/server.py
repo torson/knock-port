@@ -22,6 +22,10 @@ from flask_limiter.util import get_remote_address
 from flask_wtf import FlaskForm
 from wtforms import StringField
 from wtforms.validators import DataRequired, Length, AnyOf
+import warnings
+
+# Suppress specific warnings
+warnings.filterwarnings("ignore", category=UserWarning, module='flask_limiter.extension')
 
 app = Flask(__name__)
 # app.config['SECRET_KEY'] = 'e49d5ffb-6d19-467b-bd5f-ade35f7f68d3'  # Needed for CSRF protection
