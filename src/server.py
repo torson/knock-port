@@ -90,7 +90,7 @@ def manage_sessions(session_file, sessions, lock):
                     delete_nftables_rule(session['command'])
         time.sleep(1)
 
-def monitor_stealthy_ports(config, stop_event):
+def monitor_stealthy_ports(config, stop_event, session_file):
     # in case there's unintended rules change that Knock-Port relies on we reapply stealthy ports rules
     time.sleep(30)
     while True:
@@ -106,6 +106,17 @@ def monitor_stealthy_ports(config, stop_event):
         if not out:
             log("Stealthy port rule for HTTP drop missing, reapplying all stealthy ports rules")
             setup_stealthy_ports(config)
+            try:
+                with open(session_file, 'r') as f:
+                    sessions = json.load(f)
+                    for session in sessions:
+                        command = session['command']
+                        if args.routing_type == 'iptables':
+                            add_iptables_rule(command)
+                        elif args.routing_type == 'nftables' or args.routing_type == 'vyos':
+                            add_nftables_rule(command)
+            except FileNotFoundError:
+                log("No existing session file found. Skipping session rules reapplication.")
         time.sleep(5)
 
 class RequestForm(FlaskForm):
@@ -197,7 +208,7 @@ def create_app(config_path, session_file):
     session_manager.start()
     log(f"config_path: {config_path}")
     stop_event = threading.Event()
-    stealthy_ports_monitor = Thread(target=monitor_stealthy_ports, args=(config, stop_event))
+    stealthy_ports_monitor = Thread(target=monitor_stealthy_ports, args=(config, stop_event, session_file))
     app.config['stop_event'] = stop_event
     stealthy_ports_monitor.daemon = True
     stealthy_ports_monitor.start()
