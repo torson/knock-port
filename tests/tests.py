@@ -14,10 +14,10 @@ import requests
 
 ## testing curl commands
 #  > 2 different requests need to be made one after another
-# curl -d 'app=test_app_local&access_key=test_secret_http' http://localhost:8080/step-1 -v
-# curl -d 'app=test_app_local&access_key=test_secret_https' https://localhost:8443/step-2 -v -k
-# curl -d 'app=test_app_nonlocal&access_key=test_secret_http' http://localhost:8080/step-1 -v
-# curl -d 'app=test_app_nonlocal&access_key=test_secret_https' https://localhost:8443/step-2 -v -k
+# curl -d 'app=test_service_local&access_key=test_secret_http' http://localhost:8080/step-1 -v
+# curl -d 'app=test_service_local&access_key=test_secret_https' https://localhost:8443/step-2 -v -k
+# curl -d 'app=test_service_nonlocal&access_key=test_secret_http' http://localhost:8080/step-1 -v
+# curl -d 'app=test_service_nonlocal&access_key=test_secret_https' https://localhost:8443/step-2 -v -k
 
 class TestServer(unittest.TestCase):
     @classmethod
@@ -32,8 +32,8 @@ class TestServer(unittest.TestCase):
         # current working directory need to be in the repo root because we're testing also session_cache.json file which in repo root
         with open('tests/config.test.yaml', 'r') as config_file:
             cls.config = yaml.safe_load(config_file)
-        cls.test_app_local_port = cls.config['test_app_local']['port']
-        cls.test_app_nonlocal_port = cls.config['test_app_nonlocal']['port']
+        cls.test_service_local_port = cls.config['test_service_local']['port']
+        cls.test_service_nonlocal_port = cls.config['test_service_nonlocal']['port']
         cls.http_port = 8080
         cls.https_port = 8443
 
@@ -45,12 +45,12 @@ class TestServer(unittest.TestCase):
         # Step 1: HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-                          data={'app': 'test_app_local', 'access_key': 'test_secret_http'},
+                          data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
                           timeout=1)
 
         # Step 2: HTTPS request
         response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                                 data={'app': 'test_app_local', 'access_key': 'test_secret_https'},
+                                 data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
                                  verify=False,  # Disable SSL verification for testing
                                  timeout=5)
         self.assertEqual(response.status_code, 503)  # Expecting 503 as per the server logic
@@ -68,13 +68,13 @@ class TestServer(unittest.TestCase):
             self.fail(f"Session not created after {max_retries} retries. Content: {sessions}")
 
         # Test accessibility of the configured service port
-        response = requests.get(f'http://localhost:{self.test_app_local_port}', timeout=5)
-        self.assertEqual(response.status_code, 200, f"Port {self.test_app_local_port} should be accessible after the two-step process")
+        response = requests.get(f'http://localhost:{self.test_service_local_port}', timeout=5)
+        self.assertEqual(response.status_code, 200, f"Port {self.test_service_local_port} should be accessible after the two-step process")
 
         # Wait for the session to expire for the other tests to get clean environment
         with open('tests/config.test.yaml', 'r') as config_file:
             config = yaml.safe_load(config_file)
-        max_wait_time = config['test_app_local']['duration'] + 5
+        max_wait_time = config['test_service_local']['duration'] + 5
         start_time = time.time()
 
         while time.time() - start_time < max_wait_time:
@@ -88,12 +88,12 @@ class TestServer(unittest.TestCase):
         # Step 1: HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-                          data={'app': 'test_app_nonlocal', 'access_key': 'test_secret_http'},
+                          data={'app': 'test_service_nonlocal', 'access_key': 'test_secret_http'},
                           timeout=1)
 
         # Step 2: HTTPS request
         response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                                 data={'app': 'test_app_nonlocal', 'access_key': 'test_secret_https'},
+                                 data={'app': 'test_service_nonlocal', 'access_key': 'test_secret_https'},
                                  verify=False,  # Disable SSL verification for testing
                                  timeout=5)
         self.assertEqual(response.status_code, 503)  # Expecting 503 as per the server logic
@@ -111,13 +111,13 @@ class TestServer(unittest.TestCase):
             self.fail(f"Session not created after {max_retries} retries. Content: {sessions}")
 
         # Test accessibility of the configured service port
-        response = requests.get(f'http://localhost:{self.test_app_nonlocal_port}', timeout=5)
-        self.assertEqual(response.status_code, 200, f"Port {self.test_app_nonlocal_port} should be accessible after the two-step process")
+        response = requests.get(f'http://localhost:{self.test_service_nonlocal_port}', timeout=5)
+        self.assertEqual(response.status_code, 200, f"Port {self.test_service_nonlocal_port} should be accessible after the two-step process")
 
         # Wait for the session to expire for the other tests to get clean environment
         with open('tests/config.test.yaml', 'r') as config_file:
             config = yaml.safe_load(config_file)
-        max_wait_time = config['test_app_nonlocal']['duration'] + 5
+        max_wait_time = config['test_service_nonlocal']['duration'] + 5
         start_time = time.time()
 
         while time.time() - start_time < max_wait_time:
@@ -131,18 +131,18 @@ class TestServer(unittest.TestCase):
         # Perform the two-step process
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-                          data={'app': 'test_app_local', 'access_key': 'test_secret_http'},
+                          data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
                           timeout=1)
 
         requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                      data={'app': 'test_app_local', 'access_key': 'test_secret_https'},
+                      data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
                       verify=False,
                       timeout=5)
 
         # Wait for the session to expire
         with open('tests/config.test.yaml', 'r') as config_file:
             config = yaml.safe_load(config_file)
-        max_wait_time = config['test_app_local']['duration'] + 5
+        max_wait_time = config['test_service_local']['duration'] + 5
         start_time = time.time()
 
         while time.time() - start_time < max_wait_time:
@@ -160,35 +160,35 @@ class TestServer(unittest.TestCase):
         time.sleep(1)
         # Verify that the port is no longer accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.get(f'http://localhost:{self.test_app_local_port}', timeout=1)
+            requests.get(f'http://localhost:{self.test_service_local_port}', timeout=1)
 
     def test_default_drop_local(self):
         # Test that the port is not accessible by default
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.get(f'http://localhost:{self.test_app_local_port}', timeout=1)
+            requests.get(f'http://localhost:{self.test_service_local_port}', timeout=1)
 
     def test_default_drop_nonlocal(self):
         # Test that the port is not accessible by default
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.get(f'http://localhost:{self.test_app_nonlocal_port}', timeout=1)
+            requests.get(f'http://localhost:{self.test_service_nonlocal_port}', timeout=1)
 
     def test_invalid_access_key(self):
         # HTTP request with invalid key (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-                          data={'app': 'test_app_local', 'access_key': 'invalidkey'},
+                          data={'app': 'test_service_local', 'access_key': 'invalidkey'},
                           timeout=1)
 
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                          data={'app': 'test_app_local', 'access_key': 'test_secret_https'},
+                          data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
                           verify=False,
                           timeout=1)
 
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.get(f'http://localhost:{self.test_app_local_port}', timeout=1)
+            requests.get(f'http://localhost:{self.test_service_local_port}', timeout=1)
 
     def test_invalid_app_name(self):
         # HTTP request with invalid app name (should timeout)
@@ -200,13 +200,13 @@ class TestServer(unittest.TestCase):
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                          data={'app': 'test_app_local', 'access_key': 'test_secret_https'},
+                          data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
                           verify=False,
                           timeout=1)
 
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.get(f'http://localhost:{self.test_app_local_port}', timeout=1)
+            requests.get(f'http://localhost:{self.test_service_local_port}', timeout=1)
 
     def test_missing_data(self):
         # HTTP request with missing data (should timeout)
@@ -216,13 +216,13 @@ class TestServer(unittest.TestCase):
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                          data={'app': 'test_app_local', 'access_key': 'test_secret_https'},
+                          data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
                           verify=False,
                           timeout=1)
 
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.get(f'http://localhost:{self.test_app_local_port}', timeout=1)
+            requests.get(f'http://localhost:{self.test_service_local_port}', timeout=1)
 
     def test_http_get_request(self):
         # HTTP GET request (should timeout)
@@ -253,7 +253,7 @@ class TestServer(unittest.TestCase):
         # Valid HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-                          data={'app': 'test_app_local', 'access_key': 'test_secret_http'},
+                          data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
                           timeout=1)
 
         # Invalid HTTPS request (invalid app_name)
@@ -265,26 +265,26 @@ class TestServer(unittest.TestCase):
 
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.get(f'http://localhost:{self.test_app_local_port}', timeout=1)
+            requests.get(f'http://localhost:{self.test_service_local_port}', timeout=1)
         time.sleep(5)
 
     def test_valid_http_invalid_https_access_key(self):
         # Valid HTTP request (should timeout)
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-                          data={'app': 'test_app_local', 'access_key': 'test_secret_http'},
+                          data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
                           timeout=1)
 
         # Invalid HTTPS request (invalid access_key)
         response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                                 data={'app': 'test_app_local', 'access_key': 'invalid_key'},
+                                 data={'app': 'test_service_local', 'access_key': 'invalid_key'},
                                  verify=False,
                                  timeout=5)
         self.assertEqual(response.status_code, 503)
 
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-            requests.get(f'http://localhost:{self.test_app_local_port}', timeout=1)
+            requests.get(f'http://localhost:{self.test_service_local_port}', timeout=1)
         time.sleep(5)
 
 if __name__ == "__main__":

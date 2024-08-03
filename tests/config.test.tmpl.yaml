@@ -6,7 +6,7 @@ global:
   interface_ext: eth0
   interface_int: eth0  # used in case of non-local service
 
-test_app_local:
+test_service_local:
   port: 1194
   access_key_http:
     - test_secret_http
@@ -19,7 +19,7 @@ test_app_local:
   duration: 10
   step2_https_duration: 5
 
-test_app_nonlocal:
+test_service_nonlocal:
   port: 1294
   access_key_http:
     - test_secret_http
