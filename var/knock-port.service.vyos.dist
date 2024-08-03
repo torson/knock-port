@@ -17,9 +17,9 @@ Group=root
 WorkingDirectory=/app
 ExecStartPre=/root/venv/bin/pip install -r requirements.txt
 
-# nohup /root/venv/bin/python src/server.py -c src/config.yaml --routing-type vyos --nftables-chain-input NAME_IN-OpenVPN-KnockPort --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key >> knock-port-server.log &
+# nohup /root/venv/bin/python src/server.py -c src/config.yaml --firewall-type vyos --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key >> knock-port-server.log &
 
-ExecStart=/root/venv/bin/python src/server.py -c src/config.yaml --routing-type vyos --nftables-chain-input NAME_IN-OpenVPN-KnockPort --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
+ExecStart=/root/venv/bin/python src/server.py -c src/config.yaml --firewall-type vyos --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
 Restart=always
 Environment="PATH=/root/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 StandardOutput=append:/var/log/knock-port.log
