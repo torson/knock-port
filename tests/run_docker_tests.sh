@@ -4,7 +4,7 @@ set -e
 
 RUN_TESTS_ROUTING_TYPE_IPTABLES=true
 RUN_TESTS_ROUTING_TYPE_NFTABLES=true
-RUN_TESTS_ROUTING_TYPE_VYOS=false
+RUN_TESTS_ROUTING_TYPE_VYOS=true
 
 log() {
     echo -e "\n--> $(date) : $@"
@@ -168,11 +168,27 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_NFTABLES}"  = "true" ]]; then
     log "Starting KnockPort"
     log docker exec port-knock-server bash -c \
         'python src/server.py -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.nftables.log 2>&1 &'
+
     docker exec port-knock-server bash -c \
         'python src/server.py -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.nftables.log 2>&1 &'
     sleep 3
 
     # Run the tests , needs to be run from repo root
+    log "Running tests"
+    run_command python tests/tests.py
+
+    log "Running tests again with custom INPUT and FORWARD chains"
+    docker exec port-knock-server bash -c 'pkill -f server.py'
+    sleep 5
+    log "Starting KnockPort"
+    log docker exec port-knock-server bash -c \
+        'python src/server.py -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --nftables-chain-input IN-KnockPort --nftables-chain-forward FWD-KnockPort > tests/run_docker_tests.server.nftables.log 2>&1 &'
+
+    docker exec port-knock-server bash -c \
+        'python src/server.py -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --nftables-chain-input IN-KnockPort --nftables-chain-forward FWD-KnockPort > tests/run_docker_tests.server.nftables.log 2>&1 &'
+    sleep 3
+
+    log "Running tests"
     run_command python tests/tests.py
 
     run_command docker stop -t 1 port-knock-server
@@ -317,10 +333,11 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
     log "Starting KnockPort"
     log docker exec port-knock-server vbash -c \
         'cd /app && ~/venv/bin/python src/server.py -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
+
     docker exec port-knock-server vbash -c \
         'cd /app && ~/venv/bin/python src/server.py -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
     # app init takes a bit longer on clean vyos as it creates firewall rules using the 'set' commands which are slow
-    sleep 10
+    sleep 15
 
 
     # Run the tests , needs to be run from repo root
