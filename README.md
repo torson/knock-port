@@ -13,19 +13,19 @@ There are 3 ports in the procedure :
 
 2-step approach is needed, because HTTPS port can't be made stealthy due to the nature of HTTPS handshake, and HTTP is plaintext so a network sniffer can easily catch the access key - that's why the step-1 and step-2 access keys should be different. Also each user can have different/unique pairs.
 
-So step-1 is to hide the setup from public, and step-2 is to secure the setup from step-1 network sniffing.
+So step-1 is to hide the setup from public, and step-2 is to secure the setup (to some degree) from step-1 network sniffing. In such a case the attacker can still attack the HTTPS port. There is a FlaskForm form checker and flask_limiter rate limiter in place to remedy the attack. A more security-aware web server like Nginx should be put in front the HTTPS port for such a case.
 
 ### Detailed Breakdown of the 2-step procedure
 1. Client (curl) sends POST request:
 
 - TCP SYN to establish connection.
-- TCP SYN-ACK from server (allowed by nftables rule).
+- TCP SYN-ACK from server (allowed by iptables/nftables rule).
 - TCP ACK from client to complete the handshake.
 - HTTP POST request sent over the established TCP connection (this can also be part of TCP ACK packet).
 
 2. Server receives POST request:
 
-- Due to nftables rules, the server host does not send an ACK back for the HTTP POST data (web server sends it, but it's dropped by the firewall).
+- Due to iptables/nftables rules, the server host does not send an ACK back for the HTTP POST data (web server sends it, but it's dropped by the firewall).
 - The TCP stack on the client side waits for an ACK or response. As the ACK never comes there's TCP stack retransmission:
 - After a timeout, the client’s TCP stack retransmits the HTTP POST request.
 - This continues, following the exponential backoff strategy, until it reaches the maximum retransmission limit.
@@ -34,12 +34,35 @@ So step-1 is to hide the setup from public, and step-2 is to secure the setup fr
 ## Configuration
 The server uses a YAML configuration file to define app names, their corresponding ports, access keys, and the duration for which the port should remain open. Here's an example of the configuration format:
 ```yaml
+global:
+  http_post_path: /step-1-SECRET
+  https_post_path: /step-2-SECRET
+  step1_2_rate_limit_per_minute: 120
+  interface_ext: eth0
+  interface_int: eth0  # used in case of non-local service
+
 openvpn:
   port: 1194
-  # destination: Can be "local" or "IP:PORT" - "local" uses the local server, "IP:PORT" forwards requests to the specified IP address and port
+  access_key_http:
+    - test_secret_http
+    - test_secret2_http
+  access_key_https:
+    - test_secret_https
+    - test_secret2_https
+  # destination: Can be "local" or "IP" or "IP:PORT" - "local" uses the local server, "IP:PORT" forwards requests to the specified IP address and port
   destination: local
-  duration: 300  # Duration in seconds
+  protocol: tcp
+  duration: 86400   # 24h ; Duration in seconds
+  step2_https_duration: 5
 ```
+
+## TODO
+- add arguments --waf-http-port and --waf-https-port in case you add Nginx/WAF in front of KnockPort as firewall rules need to be set up for the public-faced ports
+- error out if http_post_path and https_post_path are default
+- destination can have IP:PORT , currently only IP
+- for vyos tests add also Nginx in front of HTTPS and setting client_max_body_size 100;
+- OTP token added to access_key for HTTP request so network request sniffing becomes unuseful, the attacker needs to break into the client computer
+- 2FA token for HTTPS request in case IP is not yet in sessions - first HTTPS request gives specific 4XX status code, so a dialog is opened for the token that gets then passed on to HTTPS on 2nd request. This is for client computer breach case, so the attacker can't use the client setup from a remote machine. This secures the services ports. But HTTPS port is open for attack as HTTP OTP token has been breached at this point. Nginx/WAF should be put in front of HTTPS port to lower the chances of a successful attack on Flask
 
 ## Installation
 1. Install the required packages:
@@ -51,16 +74,16 @@ pip install -r requirements.txt
 ```
 python3 src/server.py -h
 
-nohup /root/venv/bin/python src/server.py -c src/config.yaml --routing-type vyos --nftables-chain-input NAME_IN-OpenVPN-KnockPort --http-port 80 --https-port 443 --cert /config/auth/easy-rsa/pki/issued/server.crt --key /config/auth/easy-rsa/pki/private/server.key >> knock-port-server.log &
+nohup /root/venv/bin/python src/server.py -c src/config.yaml --firewall-type iptables --http-port 80 --https-port 443 --cert server.crt --key server.key >> knock-port-server.log &
 
 # Sample curl command to test the server with the sample configuration:
-curl -m 1 -d 'app=app1&access_key=secret123' http://knock-port.example.com/step-1
-curl -m 1 -d 'app=app1&access_key=secret456' -k https://knock-port.example.com/step-2
+curl -m 1 -d 'app=app1&access_key=secret123_http' http://knock-port.example.com/step-1
+curl -m 1 -d 'app=app1&access_key=secret456_https' -k https://knock-port.example.com/step-2
 ```
 
 
 ## Testing
-There's a Unittest suite of tests for using iptables, nftables and VyOs specific nftables tables and chains. Run it with:
+There's a Unittest suite of tests for using iptables, nftables and VyOs specific nftables chains. Run it with:
 ```
 tests/run_docker_tests.sh
 ```
