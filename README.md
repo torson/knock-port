@@ -37,7 +37,7 @@ The server uses a YAML configuration file to define app names, their correspondi
 global:
   http_post_path: /step-1-SECRET
   https_post_path: /step-2-SECRET
-  step1_2_rate_limit_per_minute: 120
+  step1_2_rate_limit_per_minute: 5
   interface_ext: eth0
   interface_int: eth0  # used in case of non-local service
 
@@ -49,7 +49,6 @@ openvpn:
   access_key_https:
     - test_secret_https
     - test_secret2_https
-  # destination: Can be "local" or "IP" or "IP:PORT" - "local" uses the local server, "IP:PORT" forwards requests to the specified IP address and port
   destination: local
   protocol: tcp
   duration: 86400   # 24h ; Duration in seconds
@@ -58,7 +57,6 @@ openvpn:
 
 ## TODO
 - add arguments --waf-http-port and --waf-https-port in case you add Nginx/WAF in front of KnockPort as firewall rules need to be set up for the public-faced ports
-- error out if http_post_path and https_post_path are default
 - destination can have IP:PORT , currently only IP
 - for vyos tests add also Nginx in front of HTTPS and setting client_max_body_size 100;
 - OTP token added to access_key for HTTP request so network request sniffing becomes unuseful, the attacker needs to break into the client computer

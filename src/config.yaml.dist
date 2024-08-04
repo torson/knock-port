@@ -1,7 +1,7 @@
 
 global:
-  http_post_path: /step-1
-  https_post_path: /step-2
+  http_post_path: /step-1-SECRET    # set custom value, don't leave it default
+  https_post_path: /step-2-SECRET   # set custom value, don't leave it default
   step1_2_rate_limit_per_minute: 5
   interface_ext: eth0
   interface_int: eth0  # used in case of non-local service
@@ -14,18 +14,19 @@ openvpn:
   access_key_https:
     - secret123_https
     - secret456_https
+  # destination: Can be "local" or "IP" or "IP:PORT" - "local" uses the local server, "IP:PORT" forwards requests to the specified IP address and port
   destination: local
   protocol: tcp
-  duration: 86400   # 24h
+  duration: 86400   # 24h ; Duration in seconds
   # interface_ext: eth0  # optional, if different than global.interface_ext
   # interface_int: eth0  # optional, if different than global.interface_int
-  step2_https_duration: 60
+  step2_https_duration: 5
 
 # mysql:
 #   port: 3306
-#   access_key_http: secret123_http
-#   access_key_https: secret123_https
+#   access_key_http: secret789_http
+#   access_key_https: secret012_https
 #   destination: 192.168.0.30  # 'local' or IP (listening on the same port)
 #   protocol: tcp
-#   duration: 10  # Duration in seconds
-#   step2_https_duration: 60
+#   duration: 3600  # Duration in seconds
+#   step2_https_duration: 5
