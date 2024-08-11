@@ -799,7 +799,7 @@ def parse_args():
     parser.add_argument('--nftables-chain-default-forward', type=str, help='chain hooked to forward, used for non-local services access')
     parser.add_argument('--nftables-chain-default-prerouting', type=str, help='chain hooked to nat prerouting, used for non-local services access')
     parser.add_argument('--nftables-chain-default-postrouting', type=str, help='chain hooked to nat postrouting, used for non-local services access')
-    parser.add_argument('--no-service-rule-cleanup-on-shutdown', action='store_true', default=False, help='Do not cleanup also firewall service(s) rules on shutdown in addition to those for management (HTTP/HTTPS). Set this if you want to keep access to services when KnockPort is shut down')
+    parser.add_argument('--service-rule-cleanup-on-shutdown', action='store_false', default=True, help='Cleanup also firewall service(s) rules on shutdown in addition to those for management (HTTP/HTTPS). Set this if you want to keep access to services when KnockPort is shut down')
     args = parser.parse_args()
     return args
 
@@ -807,7 +807,7 @@ def shutdown_servers(http_server, https_server, sessions, config, firewall_comma
     log("Server is shutting down...")
     http_server.shutdown()
     https_server.shutdown()
-    if not args.no_service_rule_cleanup_on_shutdown:
+    if args.service_rule_cleanup_on_shutdown:
         log("> Removing service sessions firewall rules")
         cleanup_firewall(sessions)
         log("> Removing dnat/snat firewall rules")
