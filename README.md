@@ -15,7 +15,7 @@ There are 3 ports in the procedure :
 
 So step-1 is to hide the setup from public, and step-2 is to secure the setup (to some degree) from step-1 network sniffing. In such a case the attacker can still attack the HTTPS port. There is a FlaskForm form checker and flask_limiter rate limiter in place to remedy the attack. A more security-aware web server like Nginx should be put in front the HTTPS port for such a case.
 
-### Detailed Breakdown of the 2-step procedure
+### Detailed Breakdown of the HTTP request/response procedure
 1. Client (curl) sends POST request:
 
 - TCP SYN to establish connection.
@@ -30,6 +30,7 @@ So step-1 is to hide the setup from public, and step-2 is to secure the setup (t
 - After a timeout, the client’s TCP stack retransmits the HTTP POST request.
 - This continues, following the exponential backoff strategy, until it reaches the maximum retransmission limit.
 
+Actually after the addition of firewall level filtering of HTTP URL path, this response blocking is not needed anymore.
 
 ## Configuration
 The server uses a YAML configuration file to define app names, their corresponding ports, access keys, and the duration for which the port should remain open. Here's an example of the configuration format:
