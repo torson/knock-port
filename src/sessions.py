@@ -2,8 +2,12 @@ import time
 import json
 import os
 from threading import Thread
-from utils import log
-from firewall import add_iptables_rule, delete_iptables_rule, add_nftables_rule, delete_nftables_rule
+from utils import log, execute_command
+from firewall import (
+    add_iptables_rule, delete_iptables_rule,
+    add_nftables_rule, delete_nftables_rule,
+    setup_stealthy_ports, apply_dnat_snat_rules
+)
 
 def manage_sessions(session_file, sessions, lock, firewall_type):
     while True:
