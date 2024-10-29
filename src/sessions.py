@@ -6,7 +6,7 @@ from utils import log, execute_command
 from firewall import (
     add_iptables_rule, delete_iptables_rule,
     add_nftables_rule, delete_nftables_rule,
-    setup_stealthy_ports, apply_dnat_snat_rules
+    setup_stealthy_ports, apply_nat_rules
 )
 
 def manage_sessions(session_file, sessions, lock, firewall_type):
@@ -46,7 +46,7 @@ def monitor_stealthy_ports(config, stop_event, session_file, args):
             log(" > re-applying all stealthy HTTP/HTTPS port rules")
             setup_stealthy_ports(config)
             log(" > re-applying all nat rules")
-            apply_dnat_snat_rules(config)
+            apply_nat_rules(config)
             try:
                 with open(session_file, 'r') as f:
                     sessions = json.load(f)
