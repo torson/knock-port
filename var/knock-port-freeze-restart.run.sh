@@ -31,7 +31,7 @@ if [ "${OUTPUT_TO_STDOUT_AND_LOGFILE}" = "true" ]; then
     bash ${SCRIPT} $@ 2>&1 | tee -a ${LOG_FILE_PATH}
     FIRST_COMMAND_STATUS=${PIPESTATUS[0]}
     if [ "${FIRST_COMMAND_STATUS}" != "0" ]; then
-        echo "ERROR! Deployment script exited with error.. "
+        echo "ERROR! app exited with error.. "
         exit 1
     fi
 else

@@ -29,8 +29,8 @@ fi
 
 # Checking if there are ESTABLISHED connections to
 # either port 80 or 443 for some unknown reason
-# In such case we restart Knock-Port as it means there's
-# some undesired behaviour , some rouge connection
+# In such case we restart KnockPort as it means there's
+# some undesired behaviour, might be some rouge connection
 MATCH=0
 for COUNT in {1,2,3,4} ; do
     if [ "$MATCH" = "3" ]; then

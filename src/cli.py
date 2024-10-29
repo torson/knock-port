@@ -3,12 +3,12 @@ from utils import log
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Server Application")
-    parser.add_argument('-c', '--config', type=str, default='config.yaml', help='Path to the configuration file. If omitted, `config.yaml` in the current directory is used by default')
+    parser.add_argument('-c', '--config', type=str, default='config/config.yaml', help='Path to the configuration file. By default `config/config.yaml` is used')
     parser.add_argument('--http-port', type=int, default=8080, help='Port to run the HTTP server on (default: 8080)')
     parser.add_argument('--https-port', type=int, default=8443, help='Port to run the HTTPS server on (default: 8443)')
     parser.add_argument('--cert', type=str, help='Path to the TLS certificate file. This can be server certificate alone, or a bundle of (1) server, (2) intermediary and (3) root CA certificate, in this order, like TLS expects it')
     parser.add_argument('--key', type=str, help='Path to the TLS key file')
-    parser.add_argument('--firewall-type', type=str, default='iptables', choices=['iptables', 'nftables', 'vyos'], help='Type of routing to use (default: iptables)')
+    parser.add_argument('--firewall-type', type=str, default='nftables', choices=['iptables', 'nftables', 'vyos'], help='Type of routing to use (default: nftables , used from RHEL8/Debian10/Ubuntu20.04 onwards)')
     parser.add_argument('--nftables-table-filter', type=str, help='filter table to be used for filter chains (vyos: defaults to vyos_filter)')
     parser.add_argument('--nftables-table-nat', type=str, help='nat table to be used for nat chains (vyos: defaults to vyos_nat)')
     parser.add_argument('--nftables-chain-input', type=str, help='use custom chain for input, used for local services allow rules (nftables: defaults to INPUT , vyos: defaults to NAME_IN-KnockPort)')

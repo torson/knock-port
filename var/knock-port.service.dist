@@ -1,0 +1,32 @@
+# cp var/knock-port.service /etc/systemd/system/knock-port.service
+# systemctl daemon-reload
+# systemctl enable knock-port.service
+# systemctl start knock-port.service
+# systemctl status knock-port.service
+# journalctl -u knock-port.service
+# journalctl -fu knock-port.service
+
+[Unit]
+Description=Port knocking service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/app
+
+# python -m venv ~/python-knockport
+ExecStartPre=/root/python-knockport/bin/pip install -r requirements.txt
+
+# nohup /root/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key >> knock-port-server.log &
+
+ExecStart=/root/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
+Restart=always
+Environment="PATH=/root/python-knockport/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+StandardOutput=append:/var/log/knock-port.log
+StandardError=inherit
+TimeoutStopSec=5s
+
+[Install]
+WantedBy=multi-user.target

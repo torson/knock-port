@@ -13,19 +13,24 @@ if docker images | grep vyos | grep ${VYOS_ROLLING_VERSION} ; then
     exit
 fi
 
-# https://docs.vyos.io/en/latest/installation/virtual/docker.html
-mkdir vyos-docker && cd vyos-docker
-if [ -f ../vyos-${VYOS_ROLLING_VERSION}-amd64.iso ]; then
-    ln -s ../vyos-${VYOS_ROLLING_VERSION}-amd64.iso vyos-${VYOS_ROLLING_VERSION}-amd64.iso
-else
-    curl -o vyos-${VYOS_ROLLING_VERSION}-amd64.iso https://github.com/vyos/vyos-rolling-nightly-builds/releases/download/${VYOS_ROLLING_VERSION}/vyos-${VYOS_ROLLING_VERSION}-amd64.iso
+if [ -f .env ]; then
+    source .env
 fi
 
-mkdir rootfs
-sudo mount -o loop vyos-${VYOS_ROLLING_VERSION}-amd64.iso rootfs
+# https://docs.vyos.io/en/latest/installation/virtual/docker.html
+if [ ! -f vyos-${VYOS_ROLLING_VERSION}-generic-amd64.iso ]; then
+    wget https://github.com/vyos/vyos-nightly-build/releases/download/${VYOS_ROLLING_VERSION}/vyos-${VYOS_ROLLING_VERSION}-generic-amd64.iso
+fi
+mkdir -p vyos-docker ; cd vyos-docker
+ln -s ../vyos-${VYOS_ROLLING_VERSION}-generic-amd64.iso vyos-${VYOS_ROLLING_VERSION}-generic-amd64.iso
 
-# assuming you're running Debian flavour
-sudo apt-get install -y squashfs-tools
+mkdir -p rootfs
+sudo mount -o loop vyos-${VYOS_ROLLING_VERSION}-generic-amd64.iso rootfs
+
+# assuming we're running Debian flavour
+if ! dpkg -l | grep squashfs-tools ; then
+    sudo apt-get install -y squashfs-tools
+fi
 mkdir unsquashfs
 sudo unsquashfs -f -d unsquashfs/ rootfs/live/filesystem.squashfs
 sudo tar -C unsquashfs -c . | docker import - vyos:${VYOS_ROLLING_VERSION}

@@ -71,6 +71,10 @@ else
     log "${BASE_DIR_PATH}/tests/knock-port.testing.pem already exists."
 fi
 
+if [ "${GENERATE_CERTIFICATE_ONLY}" = "true" ]; then
+    exit
+fi
+
 cp ${BASE_DIR_PATH}/tests/config.test.tmpl.yaml ${BASE_DIR_PATH}/tests/config.test.yaml
 
 # Get the test_app port from config.test.yaml
@@ -104,7 +108,7 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
 
     # Run the server in a Docker container using --privileged (to enable port forwarding, --cap-add=SYS_ADMIN is not enough) and --cap-add=NET_ADMIN (for running iptables commands)
     run_command docker run --rm -d --privileged --cap-add=NET_ADMIN -v ${BASE_DIR_PATH}:/app -p ${KNOCKPORT_PORT_HTTP}:${KNOCKPORT_PORT_HTTP} -p ${KNOCKPORT_PORT_HTTPS}:${KNOCKPORT_PORT_HTTPS} -p ${TEST_SERVICE_PORT_LOCAL}:${TEST_SERVICE_PORT_LOCAL} -p ${TEST_SERVICE_PORT_NONLOCAL}:${TEST_SERVICE_PORT_NONLOCAL} --name port-knock-server port-knock-server python -m http.server ${TEST_SERVICE_PORT_LOCAL}
-
+exit
     log "installing requirements"
     log "docker exec port-knock-server bash -c \
         'pip install --no-cache-dir -r requirements.txt'"
@@ -200,7 +204,9 @@ fi
 if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
     log "### testing --firewall-type vyos"
 
-    export VYOS_ROLLING_VERSION=1.5-rolling-202405260021
+    if [ -f ${BASE_DIR_PATH}/tests/.env ]; then
+        source ${BASE_DIR_PATH}/tests/.env
+    fi
     bash -x ${BASE_DIR_PATH}/tests/create_vyos_docker_image.sh || exit 1
 
     # install app dependencies into the VyOs Docker image
