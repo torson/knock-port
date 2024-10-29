@@ -104,6 +104,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
 def create_app(config_path, session_file, args):
     config = load_config(config_path)
     app.config['config'] = config
+    app.config['service_rule_cleanup_on_shutdown'] = args.service_rule_cleanup_on_shutdown
     sessions = []
     lock = Lock()
 

@@ -12,7 +12,7 @@ def shutdown_servers(http_server, https_server, app, firewall_commands):
     http_server.shutdown()
     https_server.shutdown()
     
-    if app.config['service_rule_cleanup_on_shutdown']:
+    if app.config.get('service_rule_cleanup_on_shutdown', True):
         log("> Removing service sessions firewall rules")
         cleanup_firewall(app.config['sessions'], app.args.firewall_type)
         log("> Removing dnat/snat firewall rules")
