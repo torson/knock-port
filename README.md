@@ -29,7 +29,7 @@ openvpn:
     - test_secret_https
     - test_secret2_https
   destination: local
-  protocol: tcp
+  protocol: udp
   duration: 86400          # 24h ; Duration in seconds
   step2_https_duration: 5  # seconds
 ```

@@ -27,6 +27,6 @@ openvpn:
 #   access_key_http: secret789_http
 #   access_key_https: secret012_https
 #   destination: 192.168.0.30  # 'local' or IP (listening on the same port)
-#   protocol: tcp
+#   protocol: udp
 #   duration: 3600  # Duration in seconds
 #   step2_https_duration: 5
