@@ -4,7 +4,10 @@ import threading
 from app import create_app
 from cli import parse_args
 from config import init_vars
-from firewall import setup_stealthy_ports, cleanup_stealthy_ports, apply_nat_rules, cleanup_nat_rules
+from firewall import (
+    setup_stealthy_ports, cleanup_stealthy_ports,
+    apply_nat_rules, cleanup_nat_rules, cleanup_firewall
+)
 from utils import log
 
 def shutdown_servers(http_server, https_server, app, firewall_commands):
