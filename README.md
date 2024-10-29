@@ -1,7 +1,7 @@
 
 # Knock-Port
 
-This app implements a port-knock approach using a 2-step HTTP and HTTPS POST request procedure to open a service port - either running locally or on an internal LAN host (forwarding the traffic).
+A port-knock using a 2-step HTTP and HTTPS POST request procedure to open a service port - either running locally or on an internal LAN host (forwarding the traffic).
 
 It checks if the POST request payload matches an app name and access key in the configuration file. If there's a match, it opens the port for the client IP for a limited duration as specified in the configuration. The server manages sessions and automatically closes the service port for the client IP after the duration expires.
 

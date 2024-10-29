@@ -1,9 +1,10 @@
 .aider*
 *.output
 *.log
-session_cache.json
+sessions.json
 src/*.yaml
 var/knock-port.service
 var/knock-port-freeze-restart.sh
 *.iso
 tests/config.test.yaml
+.env

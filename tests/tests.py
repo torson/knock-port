@@ -29,7 +29,7 @@ class TestServer(unittest.TestCase):
         cls.container = cls.client.containers.get('port-knock-server')
 
         # Set default policies
-        # current working directory need to be in the repo root because we're testing also session_cache.json file which in repo root
+        # current working directory need to be in the repo root because we're testing also sessions.json file which in repo root
         with open('tests/config.test.yaml', 'r') as config_file:
             cls.config = yaml.safe_load(config_file)
         cls.test_service_local_port = cls.config['test_service_local']['port']
@@ -48,6 +48,7 @@ class TestServer(unittest.TestCase):
                           data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
                           timeout=1)
 
+        time.sleep(1)
         # Step 2: HTTPS request
         response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
                                  data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
@@ -55,11 +56,11 @@ class TestServer(unittest.TestCase):
                                  timeout=5)
         self.assertEqual(response.status_code, 503)  # Expecting 503 as per the server logic
 
-        # Check the session_cache.json file inside the container
+        # Check the sessions.json file inside the container
         max_retries = 10
         retry_delay = 1  # seconds
         for _ in range(max_retries):
-            exec_result = self.container.exec_run('cat /app/session_cache.json')
+            exec_result = self.container.exec_run('cat /app/sessions.json')
             sessions = exec_result.output.decode('utf-8')
             if '"command":' in sessions:
                 break
@@ -78,7 +79,7 @@ class TestServer(unittest.TestCase):
         start_time = time.time()
 
         while time.time() - start_time < max_wait_time:
-            exec_result = self.container.exec_run('cat /app/session_cache.json')
+            exec_result = self.container.exec_run('cat /app/sessions.json')
             sessions = exec_result.output.decode('utf-8')
             if sessions.strip() == '[]':
                 break
@@ -91,6 +92,7 @@ class TestServer(unittest.TestCase):
                           data={'app': 'test_service_nonlocal', 'access_key': 'test_secret_http'},
                           timeout=1)
 
+        time.sleep(1)
         # Step 2: HTTPS request
         response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
                                  data={'app': 'test_service_nonlocal', 'access_key': 'test_secret_https'},
@@ -98,11 +100,11 @@ class TestServer(unittest.TestCase):
                                  timeout=5)
         self.assertEqual(response.status_code, 503)  # Expecting 503 as per the server logic
 
-        # Check the session_cache.json file inside the container
+        # Check the sessions.json file inside the container
         max_retries = 10
         retry_delay = 1  # seconds
         for _ in range(max_retries):
-            exec_result = self.container.exec_run('cat /app/session_cache.json')
+            exec_result = self.container.exec_run('cat /app/sessions.json')
             sessions = exec_result.output.decode('utf-8')
             if '"command":' in sessions:
                 break
@@ -121,7 +123,7 @@ class TestServer(unittest.TestCase):
         start_time = time.time()
 
         while time.time() - start_time < max_wait_time:
-            exec_result = self.container.exec_run('cat /app/session_cache.json')
+            exec_result = self.container.exec_run('cat /app/sessions.json')
             sessions = exec_result.output.decode('utf-8')
             if sessions.strip() == '[]':
                 break
@@ -134,6 +136,7 @@ class TestServer(unittest.TestCase):
                           data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
                           timeout=1)
 
+        time.sleep(1)
         requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
                       data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
                       verify=False,
@@ -146,7 +149,7 @@ class TestServer(unittest.TestCase):
         start_time = time.time()
 
         while time.time() - start_time < max_wait_time:
-            exec_result = self.container.exec_run('cat /app/session_cache.json')
+            exec_result = self.container.exec_run('cat /app/sessions.json')
             sessions = exec_result.output.decode('utf-8')
             if sessions.strip() == '[]':
                 break
@@ -179,6 +182,7 @@ class TestServer(unittest.TestCase):
                           data={'app': 'test_service_local', 'access_key': 'invalidkey'},
                           timeout=1)
 
+        time.sleep(1)
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
@@ -197,6 +201,7 @@ class TestServer(unittest.TestCase):
                           data={'app': 'invalidapp', 'access_key': 'test_secret_http'},
                           timeout=1)
 
+        time.sleep(1)
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
@@ -213,6 +218,7 @@ class TestServer(unittest.TestCase):
         with self.assertRaises(requests.exceptions.Timeout):
             requests.post(f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}', data={}, timeout=1)
 
+        time.sleep(1)
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
@@ -256,6 +262,7 @@ class TestServer(unittest.TestCase):
                           data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
                           timeout=1)
 
+        time.sleep(1)
         # Invalid HTTPS request (invalid app_name)
         response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
                                  data={'app': 'invalid_app', 'access_key': 'test_secret_https'},
@@ -275,6 +282,7 @@ class TestServer(unittest.TestCase):
                           data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
                           timeout=1)
 
+        time.sleep(1)
         # Invalid HTTPS request (invalid access_key)
         response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
                                  data={'app': 'test_service_local', 'access_key': 'invalid_key'},

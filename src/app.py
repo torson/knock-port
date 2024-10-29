@@ -62,7 +62,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
             duration = config[app_name]['duration']
             protocol = config[app_name]['protocol']
             log(f"Opening service {app_name} {protocol} port {port_to_open} for {client_ip} on {interface_ext} for {duration}s")
-        
+
         if args.firewall_type == 'iptables':
             if config[app_name]['destination'] == "local":
                 command = f"iptables -I INPUT -i {interface_ext} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
@@ -125,6 +125,7 @@ def create_app(config_path, session_file, args):
     stealthy_ports_monitor.start()
 
     @app.route(config['global']['http_post_path'], methods=['POST'])
+    # rate limit for this specific route
     @limiter.limit(f"{config['global']['step1_2_rate_limit_per_minute']} per minute")
     def handle_http_request():
         log(f"Received HTTP {request.method} request from {request.remote_addr}")
@@ -132,6 +133,7 @@ def create_app(config_path, session_file, args):
             return handle_request(config, sessions, lock, session_file, 'http', args)
 
     @app.route(config['global']['https_post_path'], methods=['POST'])
+    # rate limit for this specific route
     @limiter.limit(f"{config['global']['step1_2_rate_limit_per_minute']} per minute")
     def handle_https_request():
         log(f"Received HTTPS {request.method} request from {request.remote_addr}")

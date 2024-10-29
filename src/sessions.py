@@ -39,6 +39,8 @@ def monitor_stealthy_ports(config, stop_event, session_file, args):
         elif args.firewall_type == 'iptables':
             command = f"iptables -n -v -L | grep ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{args.http_port}-drop ; true"
         elif args.firewall_type == 'nftables' or args.firewall_type == 'vyos':
+            # on VyOs if you make a firewall change it will reset all chains to what is set up with set "set" commands
+            # we're just checking for this one rule since it's most important
             command = f"nft -a list chain ip {args.nftables_table_filter} {args.nftables_chain_default_input} | grep ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{args.http_port}-drop ; true"
         out = execute_command(command, print_command=False, print_output=False)
         if not out:
