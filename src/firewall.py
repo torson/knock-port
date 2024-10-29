@@ -2,6 +2,16 @@ import re
 import sys
 from utils import log, log_err, execute_command
 
+def check_config_destinations_nonlocal(config):
+    """Check if any services have non-local destinations"""
+    non_local_services = []
+    for service_name, settings in config.items():
+        if service_name != "global":
+            destination = settings.get('destination')
+            if destination != 'local':
+                non_local_services.append((service_name, destination))
+    return non_local_services
+
 def iptables_rule_exists(command, output=False):
     pattern = r'^\S+\s+\S+\s+(\S+)\s+.*comment\s\'([^\']+)\''
     match = re.search(pattern, command)
