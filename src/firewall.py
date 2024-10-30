@@ -42,6 +42,7 @@ def delete_iptables_rule(command):
         command = command.replace(' -I ', ' -D ')
         execute_command(command)
 
+## nftables
 def nftables_rule_exists(command, output=False, pattern=r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+).*comment\s\'([^\']+)\''):
     # searches rule comment or name
     match = re.search(pattern, command)
