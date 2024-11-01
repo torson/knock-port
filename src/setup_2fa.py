@@ -6,6 +6,7 @@ import os
 import pyotp
 import qrcode
 import json
+from qrcode.image.pure import PymagingImage
 from pathlib import Path
 
 def generate_2fa_config(access_key):
@@ -44,6 +45,9 @@ def generate_2fa_config(access_key):
     qr_img = qr.make_image(fill_color="black", back_color="white")
     qr_img.save(config_dir / f"{access_key}_qr.png")
     
+    # Print ASCII QR code
+    print("\n=== QR Code ===")
+    qr.print_ascii(tty=True)
     print("\n=== 2FA Setup Instructions ===")
     print("1. Open Google Authenticator on your phone")
     print("2. Tap the '+' button")
