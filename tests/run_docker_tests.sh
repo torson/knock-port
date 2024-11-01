@@ -78,9 +78,9 @@ fi
 cp ${BASE_DIR_PATH}/tests/config.test.tmpl.yaml ${BASE_DIR_PATH}/tests/config.test.yaml
 
 # Get the test_app port from config.test.yaml
-TEST_SERVICE_PORT_LOCAL=$(grep -v -P "^ *#" ${BASE_DIR_PATH}/tests/config.test.yaml | grep -A 5 test_service_local | grep port: | awk '{print $2}')
-TEST_SERVICE_PORT_NONLOCAL=$(grep -v -P "^ *#" ${BASE_DIR_PATH}/tests/config.test.yaml | grep -A 5 test_service_nonlocal | grep port: | awk '{print $2}')
-TEST_SERVICE_PORT_NONLOCAL_DESTINATION=$(grep -v -P "^ *#" ${BASE_DIR_PATH}/tests/config.test.yaml | grep -A 10 test_service_nonlocal | grep destination: | awk '{print $2}' | awk -F: '{print $2}')
+TEST_SERVICE_PORT_LOCAL=$(grep -v -P "^ *#" ${BASE_DIR_PATH}/tests/config.test.yaml | grep -A 5 test_service_local: | grep port: | awk '{print $2}')
+TEST_SERVICE_PORT_NONLOCAL=$(grep -v -P "^ *#" ${BASE_DIR_PATH}/tests/config.test.yaml | grep -A 5 test_service_nonlocal: | grep port: | awk '{print $2}')
+TEST_SERVICE_PORT_NONLOCAL_DESTINATION=$(grep -v -P "^ *#" ${BASE_DIR_PATH}/tests/config.test.yaml | grep -A 10 test_service_nonlocal: | grep destination: | awk '{print $2}' | awk -F: '{print $2}')
 
 KNOCKPORT_PORT_HTTP=8080
 KNOCKPORT_PORT_HTTPS=8443

@@ -140,7 +140,7 @@ def create_app(config_path, session_file, args):
     session_manager.start()
 
     stop_event = threading.Event()
-    stealthy_ports_monitor = Thread(target=monitor_stealthy_ports, args=(config, stop_event, session_file, args))
+    stealthy_ports_monitor = Thread(target=monitor_stealthy_ports, args=(config, stop_event, session_file, args, app))
     app.config['stop_event'] = stop_event
     stealthy_ports_monitor.daemon = True
     stealthy_ports_monitor.start()

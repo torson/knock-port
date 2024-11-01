@@ -101,8 +101,7 @@ So step-1 is to hide the setup from public, and step-2 is to secure the setup (t
 Actually after the addition of firewall level filtering of HTTP URL path (which was not in the initial design), this response blocking is not really needed anymore, but I still left it there.
 
 ## TODO
-- add arguments --waf-http-port and --waf-https-port in case you add Nginx/WAF in front of KnockPort as firewall rules need to be set up for the public-faced ports
-- for vyos tests add also Nginx in front of HTTPS and setting client_max_body_size 100;
+- set HTTP firewall string length to minimal based on length of all service names and access_keys + 6 for potential 2FA
 - OTP token added to access_key for HTTP request so network sniffing becomes unuseful, the attacker needs to break into the client computer
 - 2FA token for HTTPS request in case IP is not yet in sessions - first HTTPS request gives specific 4XX status code, so a dialog is opened for the token that gets then passed on to HTTPS on 2nd request. This is for client computer breach case, so the attacker can't use the client setup from a remote machine. This secures the services ports. But HTTPS port is open for attack as HTTP OTP token has been breached at this point. Nginx/WAF should be put in front of HTTPS port to lower the chances of a successful attack on Flask
 
