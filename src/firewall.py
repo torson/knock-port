@@ -102,12 +102,16 @@ def setup_stealthy_ports(config, args, app):
     https_port = args.waf_https_port if args.waf_https_port else args.https_port
     public_server_label = "WAF" if args.waf_http_port else "KnockPort"
 
+    # nftables doesn't have string module like iptables, so we need to match hex characters on exact positions inside the TCP packet payload
+    http_post_phase1_hex_string, http_post_phase1_hex_string_bit_length = string_to_hex_and_bit_length(f"POST {app.config['config']['global']['http_post_path']}")
+
     if args.firewall_type == 'iptables':
         firewall_commands = [
             f"echo Drop incoming packets to {public_server_label} HTTP port",
                 f"iptables -I INPUT -i {config['global']['interface_ext']} -p tcp --dport {http_port} -j DROP -m comment --comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-drop'",
             f"echo Allow incoming POST {app.config['config']['global']['http_post_path']} TCP packets to {public_server_label} HTTP port limited to 500B",
-                f"iptables -I INPUT -i {config['global']['interface_ext']} -p tcp --dport {http_port} -m string --string 'POST {app.config['config']['global']['http_post_path']}' --algo bm --to 200 -m length --length 0:500 -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-POST-path-{app.config['config']['global']['http_post_path'].replace('/', '_')}-accept'",
+            # The --algo bm --to options specify using the Boyer-Moore algorithm to search for the string within the first N bytes of the packet payload, and the -m length --length 0:500 part restricts the rule to packets whose total length is between 0 and 500 bytes (HTTP request for Knock-Port should never exceed 500B)
+                f"iptables -I INPUT -i {config['global']['interface_ext']} -p tcp --dport {http_port} -m string --string 'POST {app.config['config']['global']['http_post_path']}' --algo bm --to {http_post_phase1_hex_string_bit_length} -m length --length 0:500 -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-POST-path-{app.config['config']['global']['http_post_path'].replace('/', '_')}-accept'",
             f"echo Allow incoming SYN packets to {public_server_label} HTTP port for initial three-way TCP handshake",
                 f"iptables -I INPUT -i {config['global']['interface_ext']} -p tcp --dport {http_port} --tcp-flags ALL SYN -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-SYN-accept'",
             f"echo Drop outgoing traffic from {public_server_label} HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a response from HTTP port",
@@ -198,12 +202,11 @@ def setup_stealthy_ports(config, args, app):
             # vyos nft chains are never empty
             firewall_commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_default_input} index 0 tcp dport {http_port} iifname {config['global']['interface_ext']} counter drop comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-drop'")
 
-        # nftables doesn't have string module like iptables, so we need to match hex characters on exact positions inside the TCP packet payload
-        http_post_phase1_hex_string, http_post_phase1_hex_string_bit_length = string_to_hex_and_bit_length(f"POST {app.config['config']['global']['http_post_path']}")
         firewall_commands = firewall_commands + [
             # we're adding rules with insert so the final order will be opposite of the order here
             f"echo Allow incoming POST {app.config['config']['global']['http_post_path']} TCP packets to {public_server_label} HTTP port limited to 500B",
                 # @ih,0,N from here : https://manpages.debian.org/bookworm/nftables/nft.8.en.html#RAW_PAYLOAD_EXPRESSION
+                # restricts the rule to packets whose total length is between 0 and 500 bytes (HTTP request for Knock-Port should never exceed 500B) and whose payload starts with 'POST ' + http_post_phase1_hex_string.
                 f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_default_input} index 0 tcp dport {http_port} ip length 0-500 @ih,0,{http_post_phase1_hex_string_bit_length} == 0x{http_post_phase1_hex_string} iifname {config['global']['interface_ext']} counter accept comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-POST-path-{app.config['config']['global']['http_post_path'].replace('/', '_')}-accept'",
             f"echo Allow incoming SYN packets to {public_server_label} HTTP port for initial three-way TCP handshake",
                 f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_default_input} index 0 tcp dport {http_port} 'tcp flags & (fin|syn|rst|ack) == syn' iifname {config['global']['interface_ext']} counter accept comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-SYN-accept'"
