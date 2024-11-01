@@ -101,7 +101,6 @@ So step-1 is to hide the setup from public, and step-2 is to secure the setup (t
 Actually after the addition of firewall level filtering of HTTP URL path (which was not in the initial design), this response blocking is not really needed anymore, but I still left it there.
 
 ## TODO
-- add test case for blocking request at the firewall level
 - add arguments --waf-http-port and --waf-https-port in case you add Nginx/WAF in front of KnockPort as firewall rules need to be set up for the public-faced ports
 - for vyos tests add also Nginx in front of HTTPS and setting client_max_body_size 100;
 - OTP token added to access_key for HTTP request so network sniffing becomes unuseful, the attacker needs to break into the client computer
