@@ -335,7 +335,6 @@ def apply_nat_rules(config, args):
         for app_name, app_config in config.items():
             if app_name != "global":
                 if app_config['destination'] != "local":
-                    interface_ext = app_config.get('interface_ext', config['global']['interface_ext'])
                     interface_int = app_config.get('interface_int', config['global']['interface_int'])
                     destination_parts = app_config['destination'].split(':')
                     destination_ip = destination_parts[0]
@@ -391,14 +390,11 @@ def cleanup_nat_rules(config, args):
         for app_name, app_config in config.items():
             if app_name != "global":
                 if app_config['destination'] != "local":
-                    interface_ext = app_config.get('interface_ext', config['global']['interface_ext'])
                     interface_int = app_config.get('interface_int', config['global']['interface_int'])
                     destination_parts = app_config['destination'].split(':')
                     destination_ip = destination_parts[0]
                     destination_port = destination_parts[1] if len(destination_parts) > 1 else app_config['port']
                     if args.firewall_type == 'iptables':
-                        delete_iptables_rule(f"iptables -t nat -A PREROUTING -i {interface_ext} -p {app_config['protocol']} --dport {app_config['port']} -j DNAT --to-destination {destination_ip}:{destination_port} -m comment --comment 'ipv4-PREROUTING-KnockPort-{interface_ext}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-DNAT'")
                         delete_iptables_rule(f"iptables -t nat -A POSTROUTING -o {interface_int} -p {app_config['protocol']} -d {destination_ip} --dport {destination_port} -j MASQUERADE -m comment --comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'")
                     elif args.firewall_type == 'nftables' or args.firewall_type == 'vyos':
-                        delete_nftables_rule(f"nft add rule ip {args.nftables_table_nat} {args.nftables_chain_default_prerouting} {app_config['protocol']} dport {app_config['port']} iifname {interface_ext} counter dnat to {app_config['destination']}:{app_config['port']} comment 'ipv4-PREROUTING-KnockPort-{interface_ext}-{app_name}-{app_config['protocol']}-{app_config['destination']}-{app_config['port']}-DNAT'")
-                        delete_nftables_rule(f"nft add rule ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting} {app_config['protocol']} daddr {app_config['destination']} dport {app_config['port']} oifname {interface_int} counter masquerade comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{app_config['destination']}-{app_config['port']}-MASQUERADE'")
+                        delete_nftables_rule(f"nft add rule ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting} {app_config['protocol']} dport {destination_port} ip daddr {destination_ip} oifname {interface_int} counter masquerade comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'")
