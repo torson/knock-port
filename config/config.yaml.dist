@@ -26,7 +26,7 @@ openvpn:
 #   port: 3306
 #   access_key_http: secret789_http
 #   access_key_https: secret012_https
-#   destination: 192.168.0.30  # 'local' or IP (listening on the same port)
+#   destination: 192.168.0.30:4306  # 'local' or IP[:PORT] (uses port field value if :port omited)
 #   protocol: udp
 #   duration: 3600  # Duration in seconds
 #   step2_https_duration: 5

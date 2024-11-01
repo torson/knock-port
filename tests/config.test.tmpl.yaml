@@ -27,7 +27,7 @@ test_service_nonlocal:
   access_key_https:
     - test_secret_https
     - test_secret2_https
-  destination: $BACKEND_IP
+  destination: $BACKEND_IP:2294
   protocol: tcp
   duration: 10
   step2_https_duration: 5

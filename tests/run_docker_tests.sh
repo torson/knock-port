@@ -80,6 +80,7 @@ cp ${BASE_DIR_PATH}/tests/config.test.tmpl.yaml ${BASE_DIR_PATH}/tests/config.te
 # Get the test_app port from config.test.yaml
 TEST_SERVICE_PORT_LOCAL=$(grep -v -P "^ *#" ${BASE_DIR_PATH}/tests/config.test.yaml | grep -A 5 test_service_local | grep port: | awk '{print $2}')
 TEST_SERVICE_PORT_NONLOCAL=$(grep -v -P "^ *#" ${BASE_DIR_PATH}/tests/config.test.yaml | grep -A 5 test_service_nonlocal | grep port: | awk '{print $2}')
+TEST_SERVICE_PORT_NONLOCAL_DESTINATION=$(grep -v -P "^ *#" ${BASE_DIR_PATH}/tests/config.test.yaml | grep -A 10 test_service_nonlocal | grep destination: | awk '{print $2}' | awk -F: '{print $2}')
 
 KNOCKPORT_PORT_HTTP=8080
 KNOCKPORT_PORT_HTTPS=8443
@@ -91,11 +92,12 @@ run_command docker build -f tests/Dockerfile -t port-knock-server .
 if docker stop -t 1 port-knock-server-backend ; then
     sleep 2
 fi
-run_command docker run --rm -d --name port-knock-server-backend port-knock-server python -m http.server ${TEST_SERVICE_PORT_NONLOCAL}
+run_command docker run --rm -d --name port-knock-server-backend port-knock-server python -m http.server ${TEST_SERVICE_PORT_NONLOCAL_DESTINATION}
 export BACKEND_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' port-knock-server-backend)
 
 # generating tests/config.test.yaml
 envsubst < ${BASE_DIR_PATH}/tests/config.test.tmpl.yaml > ${BASE_DIR_PATH}/tests/config.test.yaml
+
 
 ### 1. iptables
 if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
@@ -108,7 +110,7 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
 
     # Run the server in a Docker container using --privileged (to enable port forwarding, --cap-add=SYS_ADMIN is not enough) and --cap-add=NET_ADMIN (for running iptables commands)
     run_command docker run --rm -d --privileged --cap-add=NET_ADMIN -v ${BASE_DIR_PATH}:/app -p ${KNOCKPORT_PORT_HTTP}:${KNOCKPORT_PORT_HTTP} -p ${KNOCKPORT_PORT_HTTPS}:${KNOCKPORT_PORT_HTTPS} -p ${TEST_SERVICE_PORT_LOCAL}:${TEST_SERVICE_PORT_LOCAL} -p ${TEST_SERVICE_PORT_NONLOCAL}:${TEST_SERVICE_PORT_NONLOCAL} --name port-knock-server port-knock-server python -m http.server ${TEST_SERVICE_PORT_LOCAL}
-exit
+
     log "installing requirements"
     log "docker exec port-knock-server bash -c \
         'pip install --no-cache-dir -r requirements.txt'"
@@ -127,6 +129,7 @@ exit
 
     docker exec port-knock-server bash -c \
         'python src/main.py -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
+
     sleep 3
 
     # curl -m 1 -d 'app=test_service_local&access_key=test_secret_http' http://localhost:8080/step-1
@@ -177,11 +180,13 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_NFTABLES}"  = "true" ]]; then
 
     docker exec port-knock-server bash -c \
         'python src/main.py -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.nftables.log 2>&1 &'
+
     sleep 3
 
     # Run the tests , needs to be run from repo root
     log "Running tests"
     run_command python tests/tests.py
+
 
     log "Running tests again with custom INPUT and FORWARD chains"
     docker exec port-knock-server bash -c 'pkill -f main.py'

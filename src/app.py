@@ -11,7 +11,7 @@ from wtforms import StringField
 from wtforms.validators import DataRequired, Length
 import warnings
 from threading import Thread, Lock
-from utils import log, log_err
+from utils import log, log_err, execute_command
 from sessions import manage_sessions, monitor_stealthy_ports
 from firewall import add_iptables_rule, add_nftables_rule
 
@@ -61,42 +61,63 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
         else:
             duration = config[app_name]['duration']
             protocol = config[app_name]['protocol']
-            log(f"Opening service {app_name} {protocol} port {port_to_open} for {client_ip} on {interface_ext} for {duration}s")
+            destination = config[app_name]['destination']
+            destination_parts = destination.split(':')
+            destination_ip = destination_parts[0]
+            destination_port = destination_parts[1] if len(destination_parts) > 1 else port_to_open
+            log(f"Opening service {app_name} {protocol} port {port_to_open} for {client_ip} on {interface_ext} to destination {destination} for {duration}s")
 
+        commands = []
         if args.firewall_type == 'iptables':
             if config[app_name]['destination'] == "local":
-                command = f"iptables -I INPUT -i {interface_ext} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
+                commands.append(f"iptables -I INPUT -i {interface_ext} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}'")
             else:
                 if access_key_type == "http":
-                    command = f"iptables -I INPUT -i {interface_ext} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
+                    commands.append(f"iptables -I INPUT -i {interface_ext} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}'")
                 else:
-                    command = f"iptables -I FORWARD -o {interface_int} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-FWD-KnockPort-{interface_int}-{app_name}-{protocol}-{port_to_open}-{client_ip}'"
-            add_iptables_rule(command)
+                    commands.append(f"iptables -I FORWARD -o {interface_int} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-FWD-KnockPort-{interface_int}-{app_name}-{protocol}-{port_to_open}-{client_ip}'")
+                    commands.append(f"iptables -t nat -A PREROUTING -i {interface_ext} -p {protocol} -s {client_ip} --dport {port_to_open} -j DNAT --to-destination {destination_ip}:{destination_port} -m comment --comment 'ipv4-PREROUTING-KnockPort-{interface_ext}-{app_name}-{protocol}-{client_ip}-{port_to_open}-{destination_ip}-{destination_port}-DNAT'")
+            for command in commands:
+                add_iptables_rule(command)
         elif args.firewall_type == 'nftables' or args.firewall_type == 'vyos':
             if config[app_name]['destination'] == "local":
-                command = f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface_ext} counter accept comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'"
+                commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface_ext} counter accept comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'")
             else:
                 if access_key_type == "http":
-                    command = f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface_ext} counter accept comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'"
+                    commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface_ext} counter accept comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'")
                 else:
-                    command = f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_forward} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} oifname {interface_int} counter accept comment 'ipv4-FWD-KnockPort-{interface_int}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'"
-            add_nftables_rule(command)
+                    commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_forward} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} oifname {interface_int} counter accept comment 'ipv4-FWD-KnockPort-{interface_int}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'")
+                    nft_rule = f"{protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface_ext} counter dnat to {destination_ip}:{destination_port} comment 'ipv4-PREROUTING-KnockPort-{interface_ext}-{app_name}-{protocol}-{client_ip}-{port_to_open}-{destination_ip}-{destination_port}-DNAT'"
+                    if args.firewall_type == 'nftables':
+                        output_lines_count = execute_command(f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_prerouting} | wc -l", print_command=False, print_output=False)
+                        if output_lines_count == "5" :
+                            # chain empty
+                            commands.append(f"nft add rule ip {args.nftables_table_nat} {args.nftables_chain_default_prerouting} {nft_rule}")
+                        else:
+                            commands.append(f"nft insert rule ip {args.nftables_table_nat} {args.nftables_chain_default_prerouting} index 0 {nft_rule}")
+                    elif args.firewall_type == 'vyos' :
+                        # vyos nft chains are never empty
+                        commands.append(f"nft insert rule ip {args.nftables_table_nat} {args.nftables_chain_default_prerouting} index 0 {nft_rule}")
+            for command in commands:
+                add_nftables_rule(command)
 
-        session_exists = False
-        expires_at = time.time() + duration
-        for session in sessions:
-            if session['command'] == command:
-                log("Session is duplicate, updating 'expires_at'")
-                session['expires_at'] = expires_at
-                session_exists = True
-                break
-        if not session_exists:
-            sessions.append({'command': command, 'expires_at': expires_at})
-        with lock:
-            with open(session_file, 'w') as f:
-                json.dump(sessions, f, indent=4, sort_keys=True)
-                f.flush()
-                os.fsync(f.fileno())
+
+        for command in commands:
+            session_exists = False
+            expires_at = time.time() + duration
+            for session in sessions:
+                if session['command'] == command:
+                    log("Session is duplicate, updating 'expires_at'")
+                    session['expires_at'] = expires_at
+                    session_exists = True
+                    break
+            if not session_exists:
+                sessions.append({'command': command, 'expires_at': expires_at})
+            with lock:
+                with open(session_file, 'w') as f:
+                    json.dump(sessions, f, indent=4, sort_keys=True)
+                    f.flush()
+                    os.fsync(f.fileno())
     else:
         log_err(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
     abort(503)
