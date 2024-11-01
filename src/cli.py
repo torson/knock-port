@@ -18,5 +18,5 @@ def parse_args():
     parser.add_argument('--nftables-chain-default-forward', type=str, help='chain hooked to forward, used for non-local services access')
     parser.add_argument('--nftables-chain-default-prerouting', type=str, help='chain hooked to nat prerouting, used for non-local services access')
     parser.add_argument('--nftables-chain-default-postrouting', type=str, help='chain hooked to nat postrouting, used for non-local services access')
-    parser.add_argument('--service-rule-cleanup-on-shutdown', action='store_false', default=True, help='Drop access also to services ports in addition to management (HTTP/HTTPS) ports when KnockPort is shut down. Default is to keep service port rules as is to not disrupt the services access when restarting KnockPort')
+    parser.add_argument('--service-rule-cleanup-on-shutdown', action='store_true', default=False, help='Drop access also to services ports in addition to management (HTTP/HTTPS) ports when KnockPort is shut down. Default is to keep service port rules as is to not disrupt the services access when restarting KnockPort')
     return parser.parse_args()
