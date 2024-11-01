@@ -295,5 +295,24 @@ class TestServer(unittest.TestCase):
             requests.get(f'http://localhost:{self.test_service_local_port}', timeout=1)
         time.sleep(5)
 
+    def test_firewall_blocking_invalid_http_request(self):
+        # Send an HTTP POST request with an invalid path
+        invalid_path = "/invalid-path"
+        with self.assertRaises(requests.exceptions.Timeout):
+            requests.post(f'http://localhost:{self.http_port}{invalid_path}',
+                          data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
+                          timeout=1)
+
+        # Parse the log files to check if the invalid path request was blocked
+        log_files = glob.glob('tests/run_docker_tests.server.*.log')
+        invalid_path_found = False
+        for log_file in log_files:
+            with open(log_file, 'r') as f:
+                if f'POST {invalid_path}' in f.read():
+                    invalid_path_found = True
+                    break
+
+        self.assertFalse(invalid_path_found, f"The invalid path '{invalid_path}' was not blocked by the firewall")
+
 if __name__ == "__main__":
     unittest.main()
