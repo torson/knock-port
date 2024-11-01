@@ -27,9 +27,13 @@ limiter = Limiter(
 )
 limiter.init_app(app)
 
+import pyotp
+from pathlib import Path
+
 class RequestForm(FlaskForm):
     app = StringField('app', validators=[DataRequired(), Length(min=1, max=50)])
     access_key = StringField('access_key', validators=[DataRequired(), Length(min=10, max=50)])
+    token = StringField('token', validators=[DataRequired(), Length(min=6, max=6)])
 
 def handle_request(config, sessions, lock, session_file, access_key_type, args):
     client_ip = request.remote_addr
@@ -47,6 +51,25 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
     log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
 
     if app_name in config and app_name != "global" and access_key in config[app_name][f'access_key_{access_key_type}']:
+        # For HTTP requests, verify 2FA token
+        if access_key_type == "http":
+            token = form.token.data
+            
+            # Check if 2FA is configured for this access key
+            config_file = Path(f"config/2fa/{access_key}.json")
+            if not config_file.exists():
+                log_err(f"2FA not configured for access key: {access_key}")
+                abort(503)
+            
+            # Load 2FA configuration
+            with open(config_file) as f:
+                tfa_config = json.load(f)
+            
+            # Verify TOTP token
+            totp = pyotp.TOTP(tfa_config['secret'])
+            if not totp.verify(token):
+                log_err(f"Invalid 2FA token for access key: {access_key}")
+                abort(503)
         interface_ext = config[app_name].get('interface_ext', config['global']['interface_ext'])
         interface_int = config[app_name].get('interface_int', config['global']['interface_int'])
         port_to_open = config[app_name]['port']
