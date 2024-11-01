@@ -10,6 +10,7 @@ import urllib3
 from urllib3.exceptions import InsecureRequestWarning
 import warnings
 import requests
+import glob  # Add this import
 
 
 ## testing curl commands
