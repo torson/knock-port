@@ -12,39 +12,39 @@ from pathlib import Path
 def generate_2fa_config(access_key):
     # Generate a random secret key
     secret = pyotp.random_base32()
-    
+
     # Create TOTP object
     totp = pyotp.TOTP(secret)
-    
+
     # Generate provisioning URI for QR code
     provisioning_uri = totp.provisioning_uri(
         name=access_key,
         issuer_name="Knock-Port"
     )
-    
+
     # Generate QR code
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(provisioning_uri)
     qr.make(fit=True)
-    
+
     # Create config directory if it doesn't exist
     config_dir = Path("config/2fa")
     config_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Save 2FA configuration
     config = {
         "secret": secret,
         "created_at": str(datetime.datetime.now())
     }
-    
+
     config_file = config_dir / f"{access_key}.json"
     with open(config_file, "w") as f:
         json.dump(config, f, indent=4)
-    
+
     # Save QR code image
     qr_img = qr.make_image(fill_color="black", back_color="white")
     qr_img.save(config_dir / f"{access_key}_qr.png")
-    
+
     # Print ASCII QR code
     print("\n=== QR Code ===")
     qr.print_ascii(tty=True)
@@ -61,10 +61,10 @@ def generate_2fa_config(access_key):
 
 def main():
     parser = argparse.ArgumentParser(description="Setup 2FA for KnockPort access key")
-    parser.add_argument("access_key", help="HTTP access key to associate with 2FA")
+    parser.add_argument("http_access_key", help="HTTP access key to associate with 2FA")
     args = parser.parse_args()
-    
-    generate_2fa_config(args.access_key)
+
+    generate_2fa_config(args.http_access_key)
 
 if __name__ == "__main__":
     main()
