@@ -65,6 +65,14 @@ def main():
     parser.add_argument('-i', '--interval', type=int, default=30, help='2FA token refresh interval (default:30s)')
     args = parser.parse_args()
 
+    if args.interval != 30:
+        print("\nWARNING: Using a non-standard interval of {} seconds.".format(args.interval))
+        print("This interval might not be supported by all Authenticator apps.")
+        response = input("Do you want to continue? [y/N]: ")
+        if response.lower() != 'y':
+            print("Aborting setup.")
+            return
+
     generate_2fa_config(args.http_access_key, args.interval)
 
 if __name__ == "__main__":
