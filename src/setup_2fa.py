@@ -9,12 +9,10 @@ import json
 from qrcode.image.pure import PymagingImage
 from pathlib import Path
 
-def generate_2fa_config(access_key):
+def generate_2fa_config(access_key, interval):
     # Generate a random secret key
     secret = pyotp.random_base32()
 
-    # Create TOTP object with custom interval (default is 30)
-    interval = 10  # 10 second intervals
     totp = pyotp.TOTP(secret, interval=interval)
 
     # Generate provisioning URI for QR code
@@ -63,10 +61,11 @@ def generate_2fa_config(access_key):
 
 def main():
     parser = argparse.ArgumentParser(description="Setup 2FA for KnockPort access key")
-    parser.add_argument("http_access_key", help="HTTP access key to associate with 2FA")
+    parser.add_argument('-k', '--http_access_key', type=str, required=True, help='HTTP access key to associate with 2FA')
+    parser.add_argument('-i', '--interval', type=int, default=30, help='2FA token refresh interval (default:30s)')
     args = parser.parse_args()
 
-    generate_2fa_config(args.http_access_key)
+    generate_2fa_config(args.http_access_key, args.interval)
 
 if __name__ == "__main__":
     main()
