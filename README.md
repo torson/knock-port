@@ -1,24 +1,23 @@
 
 # Knock-Port
 
-A port-knocking server with a 2-step HTTP and HTTPS POST request procedure to open a service port - either running locally or on an internal LAN host (forwarding the traffic).
+A port-knocking server with a HTTP+HTTPS request procedure to open service port(s) - either running locally or on an internal LAN host (forwarding the traffic).
 
-It checks if the POST request payload matches an app name and access key in the configuration file. If there's a match, it opens the port for the client IP for a limited duration as specified in the configuration. The server manages open port "sessions" and automatically closes the service port for the client IP after the duration expires.
+You can continue using that old application/service you love from public internet even though it might have security holes (most probably it's littered with them). Or use it for any latest service you're using since it most probably also has security holes. With Knock-Port you open such application/service port only for the IP you're doing the request procedure from.
 
-It supports iptables, nftables and VyOS specific nftables (it was written to be used on VyOS).
+Of course if there's a rouge actor on your network (public WiFi ;) ), then Knock-Port is of no benefit in protecting your service(s) since the actor is using the same public IP as you - open access to the service(s).
 
-Note:
-Nftables were introduced in kernel 3.13 and Linux distributions started using it by default a few years later (from RHEL8/Debian10/Ubuntu20.04 onwards). This means iptables commands get translated to nftables, which means that various iptables modules are not supported if there's no equivalent nftables support. So use `--firewall-type iptables` only on systems that still use iptables by default (older than RHEL8/Debian10/Ubuntu20.04) .
+Knock-Port needs permission to modify kernel-level firewall settings, so it must either be run as root user or the user needs the iptables/nft command be added into a sudoers file.
 
 ## Configuration
-The server uses a YAML configuration file to define app names, their corresponding ports, access keys, duration for which the port should remain open, ... Example:
+The server uses a YAML configuration file to define app names, their corresponding ports, access keys, duration for which the port should remain open and so on. Example:
 ```yaml
 global:
   http_post_path: /step-1-SECRET
   https_post_path: /step-2-SECRET
   step1_2_rate_limit_per_minute: 5
   interface_ext: eth0
-  interface_int: eth0  # used in case of non-local service
+  interface_int: eth0  # used in case of non-local service and router using 2 separate interfaces
 
 openvpn:
   port: 1194
@@ -43,13 +42,13 @@ python src/main.py -h
 GENERATE_CERTIFICATE_ONLY=true tests/run_docker_tests.sh
 
 # using nftables
-python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
+sudo python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
 
 # Sample curl command to test the server with the sample configuration:
-curl -m 1 -d 'app=app1&access_key=secret123_http' http://knock-port.example.com/step-1-SECRET
-curl -m 1 -d 'app=app1&access_key=secret456_https' -k https://knock-port.example.com/step-2-SECRET
+curl -m 1 -d 'app=app1&access_key=secret123_http' http://knock-port.example.com/step-1-{SECRET}
+curl -m 1 -d 'app=app1&access_key=secret456_https' -k https://knock-port.example.com/step-2-{SECRET}
 
-# at this point the service port should be opened
+# at this point the service port should be opened for your IP
 ```
 
 Using with nohup:
@@ -71,17 +70,27 @@ journalctl -u knock-port.service
 journalctl -fu knock-port.service
 ```
 
-## Description
+## How it works
+
+It checks if the request payload matches an app name and access key in the configuration file. If there's a match, it opens the port for the client IP for a limited duration as specified in the configuration. The server manages open port "sessions" and automatically closes the service port for the client IP after the duration expires.
+
+It supports iptables, nftables and VyOS specific nftables.
+
+Features:
+- filters HTTP requests at the firewall level
+
+Notes:
+- nftables were introduced in kernel 3.13 and Linux distributions started using it by default a few years later (from RHEL8/Debian10/Ubuntu20.04 onwards). This means iptables commands get translated to nftables, which means that various iptables modules are not supported if there's no equivalent nftables support. So use `--firewall-type iptables` only on systems that still use iptables by default (older than RHEL8/Debian10/Ubuntu20.04) .
+- Knock-Port uses Flask web-server which is not meant for production use (security is not its 1st priority). There is a FlaskForm form checker and flask_limiter rate limiter in place to remedy attacks.Since how Knock-Port sets up firewall for stealthy HTTP it's highly probable there's no way to hack the HTTP port. If 2FA is not used then an attacker can repeat the HTTP request which opens up the HTTPs port for defined number of seconds and that is a window for attacking the Flask HTTPS port. A more security-aware web server like Nginx should be put in front to improve security of Knock-Port even more. If the web server is run on the same host as Knock-Port, then use arguments --waf-http-port and --waf-https-port to set those ports so firewall rules are set up correctly.
 
 There are 3 ports involved in the basic setup :
-1. HTTP port: for step-1, stealthy - On the firewall level it responds only with the TCP initialization phase packets (SYN and ACK). Only single-TCP-packet requests are allowed and only those that are `POST /_CONFIGURED_PATH_` requests, which blocks all blind brute-force and random rouge requests so they don't even get to the webserver. The HTTP response is blocked, so the HTTP client doesn't get the actual response - it just waits till timeout . A valid request (POST request with a valid secret key for step-1) opens up HTTPS port for that client IP. One needs to know the exact `/_CONFIGURED_PATH_` to get through. This can be obtained on the network if the attacker does packet sniffing on the same network where a valid client resides while doing a valid HTTP request
-2. HTTPS port: for step-2, closed by default, opened only for a time window (configured with `step2_https_duration`) for the client IP after a valid HTTP request. A valid request (POST request with a valid secret key for step-2) opens up service port for that client IP. As the request is HTTPS, packet sniffing by an attacker will not reveal either POST request path or the secret key for step-2.
+1. HTTP port: for step-1, stealthy - On the firewall level it responds only with the TCP initialization phase packets (SYN and ACK). Only single-TCP-packet requests are allowed and only those that are `POST /_CONFIGURED_PATH_` requests, which blocks all blind brute-force and random rouge requests on the firewall level so they don't even get to the webserver. The HTTP response is blocked, so the HTTP client doesn't get the actual response - it just waits till timeout . A valid request (POST request with a valid secret key for step-1) opens up HTTPS port for that client IP. One needs to know the exact `/_CONFIGURED_PATH_` to get through. This can be obtained on the network if the attacker does packet sniffing on the same network where a valid HTTP request happens
+2. HTTPS port: for step-2, closed by default, opened only for a time window (configured with `step2_https_duration`) for the client IP after a valid HTTP request. A valid request (POST request with a valid secret key for step-2) opens up service port for that client IP. As the request is HTTPS, packet sniffing by an attacker will not reveal either request path or the secret key for step-2.
 3. service port: closed by default , opened only for a time window (configured with `duration`) for the client IP after a valid HTTPS request was made.
 
-
 2-step approach is needed, because HTTPS port can't be made stealthy due to the nature of HTTPS handshake, and HTTP is plaintext so a network sniffer can easily catch the access key - that's why the step-1 and step-2 access keys should be different. Also there can be multiple keys defined, so each user can have different/unique pairs.
+So step-1 is to hide the setup from public, and step-2 is to secure the setup (to some degree, depending if you use 2FA) from step-1 network sniffing. In such a case the attacker can still attack the HTTPS port.
 
-So step-1 is to hide the setup from public, and step-2 is to secure the setup (to some degree) from step-1 network sniffing. In such a case the attacker can still attack the HTTPS port. There is a FlaskForm form checker and flask_limiter rate limiter in place to remedy the attack. A more security-aware web server like Nginx should be put in front the HTTPS port for such a case.
 
 ### Detailed Breakdown of the HTTP request/response procedure
 1. Client (curl) sends POST request:
@@ -100,9 +109,30 @@ So step-1 is to hide the setup from public, and step-2 is to secure the setup (t
 
 Actually after the addition of firewall level filtering of HTTP URL path (which was not in the initial design), this response blocking is not really needed anymore, but I still left it there.
 
+## 2FA
+
+You can enable 2FA to prevent abuse in case your machine gets compromised. Use Authenticator on your phone instead of one on the machine itself - like 1Password which also supports 2FA tokens.
+
+To set up 2FA run this command and pass it any access_key_http (configured in config.yaml) value for which you want to enable 2FA, and follow instructions:
+```
+python src/setup_2fa.py -h
+python src/setup_2fa.py -k {access_key_http}
+```
+
+From this point onwards you need to provide additional header `token` in the curl command :
+```
+curl -m 1 -d 'app=app1&access_key=secret123_http&token=123456' http://knock-port.example.com/step-1-{SECRET}
+
+```
+
+A valid token can be used only once to prevent an attacker (sniffing the network) repeating the same request from another IP, so in case you fail to send the HTTPS request within the configured `step2_https_duration` value (if it's set to a low value, 5 for example), then you need to wait for the next token to generate
+
+In addition of securing the services ports, enabling 2FA also shields Knock-Port itself from attacks on HTTPS port because the token is passed with the 1st step HTTP request (there's nothing wrong with sending tokens via HTTP as the 2FA key can't get reverse-engineered with sampling of tokens), so the 2nd step HTTPS port doesn't even get open for attacks.
+
+
 ## TODO
-- OTP token added to access_key for HTTP request so network sniffing becomes unuseful, the attacker needs to break into the client computer
-- 2FA token for HTTPS request in case IP is not yet in sessions - first HTTPS request gives specific 4XX status code, so a dialog is opened for the token that gets then passed on to HTTPS on 2nd request. This is for client computer breach case, so the attacker can't use the client setup from a remote machine. This secures the services ports. But HTTPS port is open for attack as HTTP OTP token has been breached at this point. Nginx/WAF should be put in front of HTTPS port to lower the chances of a successful attack on Flask
+- OTP token (separate from 2FA) added to HTTP request so network sniffing becomes unuseful, the attacker needs to break into the client computer. The token needs to be generated on the client side so it must have the token generation set up in addition to just using curl
+
 
 ## Tests
 There's a Unittest suite of tests for using iptables, nftables and VyOs specific nftables chains. Run it with:
