@@ -60,18 +60,16 @@ def generate_2fa_config(access_key, interval):
     print("\nMake sure to keep these files secure!")
 
 def main():
+    interval_default = 30
     parser = argparse.ArgumentParser(description="Setup 2FA for KnockPort access key")
     parser.add_argument('-k', '--http_access_key', type=str, required=True, help='HTTP access key to associate with 2FA')
-    parser.add_argument('-i', '--interval', type=int, default=30, help='2FA token refresh interval (default:30s)')
+    parser.add_argument('-i', '--interval', type=int, default=30, help=f"2FA token refresh interval (default:{interval_default}s)")
     args = parser.parse_args()
 
-    if args.interval != 30:
-        print("\nWARNING: Using a non-standard interval of {} seconds.".format(args.interval))
-        print("This interval might not be supported by all Authenticator apps.")
-        response = input("Do you want to continue? [y/N]: ")
-        if response.lower() != 'y':
-            print("Aborting setup.")
-            return
+    if args.interval != interval_default:
+        print(f"\nWARNING: Using a non-standard interval of {args.interval} seconds.")
+        print("A non-standard interval might not be supported by all Authenticator apps.")
+        input("Press any key to continue ...")
 
     generate_2fa_config(args.http_access_key, args.interval)
 

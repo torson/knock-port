@@ -24,14 +24,14 @@ app.config['WTF_CSRF_ENABLED'] = False
 
 # Token cache structure: {access_key: [(token, timestamp), ...]}
 token_cache = defaultdict(list)
-TOKEN_CACHE_WINDOW = 120  # seconds
+TOKEN_CACHE_WINDOW = 60  # seconds
 
 def cleanup_token_cache():
-    """Remove tokens older than TOKEN_CACHE_WINDOW seconds"""
+    # Remove tokens older than TOKEN_CACHE_WINDOW seconds
     current_time = time.time()
     for access_key in token_cache:
         token_cache[access_key] = [
-            (token, timestamp) 
+            (token, timestamp)
             for token, timestamp in token_cache[access_key]
             if current_time - timestamp < TOKEN_CACHE_WINDOW
         ]
@@ -73,29 +73,32 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
             if tfa_config_file.exists():
                 if form.token:
                     token = form.token.data
+
+                    # Clean up expired tokens
+                    cleanup_token_cache()
+                    # Check if token was recently used
+                    # a valid token can be used only once to prevent an attacker repeating the same request from another IP
+                    for used_token, _ in token_cache[access_key]:
+                        if used_token == token:
+                            log_err(f"Token '{token}' reuse attempt for access key: {access_key}")
+                            abort(503)
+
                     # Load 2FA configuration
                     with open(tfa_config_file) as f:
                         tfa_config = json.load(f)
-                    # Clean up expired tokens
-                    cleanup_token_cache()
-                    
-                    # Check if token was recently used
-                    for used_token, _ in token_cache[access_key]:
-                        if used_token == token:
-                            log_err(f"Token reuse attempt for access key: {access_key}")
-                            abort(503)
-                    
+
                     # Verify TOTP token with custom interval
                     totp = pyotp.TOTP(tfa_config['secret'], interval=tfa_config.get('interval', 30))
                     if not totp.verify(token):
                         log_err(f"Invalid 2FA token '{token}' for access key: {access_key}")
                         abort(503)
-                        
+
                     # Store valid token in cache
                     token_cache[access_key].append((token, time.time()))
                 else:
                     log_err(f"2FA token required but not provided for access key: {access_key}")
                     abort(503)
+
         interface_ext = config[app_name].get('interface_ext', config['global']['interface_ext'])
         interface_int = config[app_name].get('interface_int', config['global']['interface_int'])
         port_to_open = config[app_name]['port']
