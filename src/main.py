@@ -36,7 +36,7 @@ def signal_handler(sig, frame, http_server, https_server, app, firewall_commands
 
 if __name__ == '__main__':
     args = parse_args()
-    app = create_app(args.config, 'sessions.json', args)
+    app = create_app(args.config, 'cache/sessions.json', args)
     app.args = args  # Store args in app config for access in shutdown
 
     init_vars(args, app.config['config'])

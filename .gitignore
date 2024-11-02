@@ -1,7 +1,7 @@
 .aider*
 *.output
 *.log
-sessions.json
+cache
 config/*.yaml
 config/2fa
 var/knock-port.service

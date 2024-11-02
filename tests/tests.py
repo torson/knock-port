@@ -30,7 +30,7 @@ class TestServer(unittest.TestCase):
         cls.container = cls.client.containers.get('port-knock-server')
 
         # Set default policies
-        # current working directory need to be in the repo root because we're testing also sessions.json file which in repo root
+        # current working directory need to be in the repo root because we're testing also cache/sessions.json file which in repo root
         with open('tests/config.test.yaml', 'r') as config_file:
             cls.config = yaml.safe_load(config_file)
         cls.test_service_local_port = cls.config['test_service_local']['port']
@@ -57,11 +57,11 @@ class TestServer(unittest.TestCase):
                                  timeout=5)
         self.assertEqual(response.status_code, 503)  # Expecting 503 as per the server logic
 
-        # Check the sessions.json file inside the container
+        # Check the cache/sessions.json file inside the container
         max_retries = 10
         retry_delay = 1  # seconds
         for _ in range(max_retries):
-            exec_result = self.container.exec_run('cat /app/sessions.json')
+            exec_result = self.container.exec_run('cat /app/cache/sessions.json')
             sessions = exec_result.output.decode('utf-8')
             if '"command":' in sessions:
                 break
@@ -80,7 +80,7 @@ class TestServer(unittest.TestCase):
         start_time = time.time()
 
         while time.time() - start_time < max_wait_time:
-            exec_result = self.container.exec_run('cat /app/sessions.json')
+            exec_result = self.container.exec_run('cat /app/cache/sessions.json')
             sessions = exec_result.output.decode('utf-8')
             if sessions.strip() == '[]':
                 break
@@ -101,11 +101,11 @@ class TestServer(unittest.TestCase):
                                  timeout=5)
         self.assertEqual(response.status_code, 503)  # Expecting 503 as per the server logic
 
-        # Check the sessions.json file inside the container
+        # Check the cache/sessions.json file inside the container
         max_retries = 10
         retry_delay = 1  # seconds
         for _ in range(max_retries):
-            exec_result = self.container.exec_run('cat /app/sessions.json')
+            exec_result = self.container.exec_run('cat /app/cache/sessions.json')
             sessions = exec_result.output.decode('utf-8')
             if '"command":' in sessions:
                 break
@@ -124,7 +124,7 @@ class TestServer(unittest.TestCase):
         start_time = time.time()
 
         while time.time() - start_time < max_wait_time:
-            exec_result = self.container.exec_run('cat /app/sessions.json')
+            exec_result = self.container.exec_run('cat /app/cache/sessions.json')
             sessions = exec_result.output.decode('utf-8')
             if sessions.strip() == '[]':
                 break
@@ -150,7 +150,7 @@ class TestServer(unittest.TestCase):
         start_time = time.time()
 
         while time.time() - start_time < max_wait_time:
-            exec_result = self.container.exec_run('cat /app/sessions.json')
+            exec_result = self.container.exec_run('cat /app/cache/sessions.json')
             sessions = exec_result.output.decode('utf-8')
             if sessions.strip() == '[]':
                 break
