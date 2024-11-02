@@ -2,6 +2,7 @@ import json
 import os
 import threading
 import time
+from collections import defaultdict
 from flask import Flask, request, abort
 from config import load_config
 from flask_limiter import Limiter
@@ -20,6 +21,20 @@ warnings.filterwarnings("ignore", category=UserWarning, module='flask_limiter.ex
 
 app = Flask(__name__)
 app.config['WTF_CSRF_ENABLED'] = False
+
+# Token cache structure: {access_key: [(token, timestamp), ...]}
+token_cache = defaultdict(list)
+TOKEN_CACHE_WINDOW = 120  # seconds
+
+def cleanup_token_cache():
+    """Remove tokens older than TOKEN_CACHE_WINDOW seconds"""
+    current_time = time.time()
+    for access_key in token_cache:
+        token_cache[access_key] = [
+            (token, timestamp) 
+            for token, timestamp in token_cache[access_key]
+            if current_time - timestamp < TOKEN_CACHE_WINDOW
+        ]
 
 limiter = Limiter(
     key_func=get_remote_address,
@@ -61,11 +76,23 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     # Load 2FA configuration
                     with open(tfa_config_file) as f:
                         tfa_config = json.load(f)
+                    # Clean up expired tokens
+                    cleanup_token_cache()
+                    
+                    # Check if token was recently used
+                    for used_token, _ in token_cache[access_key]:
+                        if used_token == token:
+                            log_err(f"Token reuse attempt for access key: {access_key}")
+                            abort(503)
+                    
                     # Verify TOTP token with custom interval
                     totp = pyotp.TOTP(tfa_config['secret'], interval=tfa_config.get('interval', 30))
                     if not totp.verify(token):
                         log_err(f"Invalid 2FA token '{token}' for access key: {access_key}")
                         abort(503)
+                        
+                    # Store valid token in cache
+                    token_cache[access_key].append((token, time.time()))
                 else:
                     log_err(f"2FA token required but not provided for access key: {access_key}")
                     abort(503)
