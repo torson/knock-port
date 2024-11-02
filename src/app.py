@@ -61,8 +61,8 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     # Load 2FA configuration
                     with open(tfa_config_file) as f:
                         tfa_config = json.load(f)
-                    # Verify TOTP token
-                    totp = pyotp.TOTP(tfa_config['secret'])
+                    # Verify TOTP token with custom interval
+                    totp = pyotp.TOTP(tfa_config['secret'], interval=tfa_config.get('interval', 30))
                     if not totp.verify(token):
                         log_err(f"Invalid 2FA token '{token}' for access key: {access_key}")
                         abort(503)

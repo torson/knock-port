@@ -13,8 +13,9 @@ def generate_2fa_config(access_key):
     # Generate a random secret key
     secret = pyotp.random_base32()
 
-    # Create TOTP object
-    totp = pyotp.TOTP(secret)
+    # Create TOTP object with custom interval (default is 30)
+    interval = 10  # 10 second intervals
+    totp = pyotp.TOTP(secret, interval=interval)
 
     # Generate provisioning URI for QR code
     provisioning_uri = totp.provisioning_uri(
@@ -34,6 +35,7 @@ def generate_2fa_config(access_key):
     # Save 2FA configuration
     config = {
         "secret": secret,
+        "interval": interval,
         "created_at": str(datetime.datetime.now())
     }
 
