@@ -7,7 +7,7 @@ You can continue using that old application/service you love from public interne
 
 Of course if there's a rouge actor on your network (public WiFi ;) ), then Knock-Port is of no benefit in protecting your service(s) since the actor is using the same public IP as you - open access to the service(s).
 
-Knock-Port needs permission to modify kernel-level firewall settings, so it must either be run as root user or the user needs the iptables/nft command be added into a sudoers file.
+Knock-Port needs permission to modify kernel-level firewall settings, so it must be run as root user.
 
 ## Configuration
 The server uses a YAML configuration file to define app names, their corresponding ports, access keys, duration for which the port should remain open and so on. Example:
