@@ -43,7 +43,7 @@ def monitor_stealthy_ports(config, stop_event, session_file, args, app):
             # on VyOs if you make a firewall change it will reset all chains to what is set up with set "set" commands
             # we're just checking for this one rule since it's most important
             command = f"nft -a list chain ip {args.nftables_table_filter} {args.nftables_chain_default_input} | grep ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-drop ; true"
-        out = execute_command(command, print_command=False, print_output=False)
+        out = execute_command(command, print_command=True, print_output=True, run_with_sudo=args.run_with_sudo)
         if not out:
             log("!!! Stealthy port rule for HTTP drop missing")
             log(" > re-applying all stealthy HTTP/HTTPS port rules")
@@ -57,9 +57,9 @@ def monitor_stealthy_ports(config, stop_event, session_file, args, app):
                     for session in sessions:
                         command = session['command']
                         if args.firewall_type == 'iptables':
-                            add_iptables_rule(command)
+                            add_iptables_rule(command, run_with_sudo=args.run_with_sudo)
                         elif args.firewall_type == 'nftables' or args.firewall_type == 'vyos':
-                            add_nftables_rule(command)
+                            add_nftables_rule(command, run_with_sudo=args.run_with_sudo)
             except FileNotFoundError:
                 log("No existing session file found. Skipping session rules reapplication.")
         time.sleep(5)

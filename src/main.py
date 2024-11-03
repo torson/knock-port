@@ -39,6 +39,8 @@ if __name__ == '__main__':
     app = create_app(args.config, 'cache/sessions.json', args)
     app.args = args  # Store args in app config for access in shutdown
 
+    log(f"run_with_sudo: {args.run_with_sudo}")
+
     init_vars(args, app.config['config'])
     apply_nat_rules(app.config['config'], args)
 

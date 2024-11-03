@@ -3,7 +3,7 @@
 set -e
 
 RUN_TESTS_ROUTING_TYPE_IPTABLES=true
-RUN_TESTS_ROUTING_TYPE_NFTABLES=true
+RUN_TESTS_ROUTING_TYPE_NFTABLES=false
 RUN_TESTS_ROUTING_TYPE_VYOS=true
 
 log() {
@@ -125,10 +125,11 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
 
     log "Starting KnockPort"
     log docker exec port-knock-server bash -c \
-        'python src/main.py -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
+        'python src/main.py -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --run-with-sudo > tests/run_docker_tests.server.iptables.log 2>&1 &'
 
+exit
     docker exec port-knock-server bash -c \
-        'python src/main.py -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
+        'python src/main.py -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --run-with-sudo > tests/run_docker_tests.server.iptables.log 2>&1 &'
 
     sleep 3
 

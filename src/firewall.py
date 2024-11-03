@@ -1,11 +1,11 @@
 import re
 import sys
-from utils import log, log_err, execute_command, string_to_hex_and_bit_length, remove_prefix
+from utils import log, log_err, execute_command, execute_command_with_pipes, string_to_hex_and_bit_length, remove_prefix
 from config import check_config_destinations_nonlocal
 import textwrap
 
 ## iptables
-def iptables_rule_exists(command, output=False):
+def iptables_rule_exists(command, output=False, run_with_sudo=False):
     pattern = r'^\S+\s+\S+\s+(\S+)\s+.*comment\s\'([^\']+)\''
     # log(f"iptables_rule_exists , command: {command}")
     # log(f"iptables_rule_exists , pattern: {pattern}")
@@ -18,9 +18,11 @@ def iptables_rule_exists(command, output=False):
         command_rules_list = f"iptables -n -v -L {table}"
         # log(f"iptables_rule_exists , command_rules_list: {command_rules_list}")
         try:
-            command = f"{command_rules_list} | grep {comment} ; true"
+            # command = f"{command_rules_list} | grep {comment} ; true"
             # log(f"Executing command: {command}")
-            rule = execute_command(command, print_command=False, print_output=False)
+            # rule = execute_command(command, print_command=False, print_output=False, run_with_sudo=run_with_sudo)
+            command = f"{command_rules_list}"
+            rule = execute_command_with_pipes(command=command_rules_list, command2=f"grep {comment}", print_command=False, print_output=False, run_with_sudo=run_with_sudo)
             if rule:
                 if output:
                     log(f"Rule exists : '{rule}'")
@@ -32,18 +34,18 @@ def iptables_rule_exists(command, output=False):
     else:
         log_err(f"iptables : regex parsing of command failed : {command}")
 
-def add_iptables_rule(command):
-    if not iptables_rule_exists(command, True):
-        execute_command(command)
+def add_iptables_rule(command, run_with_sudo=False):
+    if not iptables_rule_exists(command, output=True, run_with_sudo=run_with_sudo):
+        execute_command(command, run_with_sudo=run_with_sudo)
 
-def delete_iptables_rule(command):
-    if iptables_rule_exists(command):
+def delete_iptables_rule(command, run_with_sudo=False):
+    if iptables_rule_exists(command, run_with_sudo=run_with_sudo):
         command = command.replace(' -A ', ' -D ')
         command = command.replace(' -I ', ' -D ')
-        execute_command(command)
+        execute_command(command, run_with_sudo=run_with_sudo)
 
 ## nftables
-def nftables_rule_exists(command, output=False, pattern=r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+).*comment\s\'([^\']+)\''):
+def nftables_rule_exists(command, output=False, pattern=r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+).*comment\s\'([^\']+)\'', run_with_sudo=False):
     # searches rule comment or name
     match = re.search(pattern, command)
     if match:
@@ -54,7 +56,7 @@ def nftables_rule_exists(command, output=False, pattern=r'^\S+\s+\S+\s+\S+\s+\S+
         try:
             command = f"{command_nft_list} | grep {grep_pattern} | grep handle ; true"
             # log(f"Executing command: {command}")
-            rule = execute_command(command, print_command=False, print_output=False)
+            rule = execute_command(command, print_command=False, print_output=False, run_with_sudo=run_with_sudo)
             if rule:
                 if output:
                     log(f"Rule exists : '{rule}'")
@@ -67,33 +69,33 @@ def nftables_rule_exists(command, output=False, pattern=r'^\S+\s+\S+\s+\S+\s+\S+
     else:
         log_err(f"nftables : regex parsing of command failed : {command}")
 
-def add_nftables_rule(command):
-    if not nftables_rule_exists(command, True):
-        execute_command(command)
+def add_nftables_rule(command, run_with_sudo=False):
+    if not nftables_rule_exists(command, output=True, run_with_sudo=run_with_sudo):
+        execute_command(command, run_with_sudo=run_with_sudo)
 
-def delete_nftables_rule(command):
+def delete_nftables_rule(command, run_with_sudo=False):
     # with nftables you can't just replace 'add' with 'del' like it's done with iptables, it's more complicated , you need to list all the rules of a table, find the one to delete, take the handle number and then delete that handle.
     # nft delete rule ip vyos_filter NAME_IN-OpenVPN-KnockPort handle $(nft -a list table ip vyos_filter | grep "ipv4-NAM-IN-OpenVPN-KnockPort-tmp-127.0.0.1" | grep "handle" | awk '{print $NF}')
     # Regex pattern to capture the 5th word, 6th word, and the last quoted word
-    handle = nftables_rule_exists(command)
+    handle = nftables_rule_exists(command, run_with_sudo=run_with_sudo)
     if handle:
         pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+).*comment\s\'([^\']+)\''
         match = re.search(pattern, command)
         if match:
             table = match.group(1)
             chain = match.group(2)
-            execute_command(f"nft delete rule ip {table} {chain} handle {handle}")
+            execute_command(f"nft delete rule ip {table} {chain} handle {handle}", run_with_sudo=run_with_sudo)
         else:
             log_err(f"nftables : No rule match found for : {command}")
 
-def cleanup_firewall(sessions, firewall_type):
+def cleanup_firewall(sessions, firewall_type, run_with_sudo=False):
     # Clean up firewall rules for all active sessions
     for session in sessions:
         if firewall_type == 'iptables':
             command = session['command'].replace(' -A ', ' -D ')
-            delete_iptables_rule(command)
+            delete_iptables_rule(command, run_with_sudo=run_with_sudo)
         elif firewall_type == 'nftables' or firewall_type == 'vyos':
-            delete_nftables_rule(session['command'])
+            delete_nftables_rule(session['command'], run_with_sudo=run_with_sudo)
 
 def setup_stealthy_ports(config, args, app):
     # Set up the initial firewall rules for stealthy ports
@@ -133,7 +135,7 @@ def setup_stealthy_ports(config, args, app):
 
         for command in firewall_commands:
             if re.search(r"iptables -(A|I)", command):
-                add_iptables_rule(command)
+                add_iptables_rule(command, run_with_sudo=args.run_with_sudo)
             else:
                 execute_command(f"{command}", False)
 
@@ -144,30 +146,30 @@ def setup_stealthy_ports(config, args, app):
 
         # initialize tables and chains if missing
         if args.firewall_type == 'nftables':
-            nft_list_ruleset = execute_command(f"nft list ruleset", print_command=False, print_output=False)
+            nft_list_ruleset = execute_command(f"nft list ruleset", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
             if not f"table ip {args.nftables_table_filter}" + " {" in nft_list_ruleset:
-                execute_command(f"nft add table ip {args.nftables_table_filter}")
+                execute_command(f"nft add table ip {args.nftables_table_filter}", run_with_sudo=args.run_with_sudo)
             if not f"chain {args.nftables_chain_default_input}" + " {" in nft_list_ruleset:
-                execute_command(f"nft add chain ip {args.nftables_table_filter} {args.nftables_chain_default_input}" + " '{ type filter hook input priority filter; policy accept; }'")
+                execute_command(f"nft add chain ip {args.nftables_table_filter} {args.nftables_chain_default_input}" + " '{ type filter hook input priority filter; policy accept; }'", run_with_sudo=args.run_with_sudo)
             if not f"chain {args.nftables_chain_default_output}" + " {" in nft_list_ruleset:
-                execute_command(f"nft add chain ip {args.nftables_table_filter} {args.nftables_chain_default_output}" + " '{ type filter hook output priority filter; policy accept; }'")
+                execute_command(f"nft add chain ip {args.nftables_table_filter} {args.nftables_chain_default_output}" + " '{ type filter hook output priority filter; policy accept; }'", run_with_sudo=args.run_with_sudo)
             if not f"chain {args.nftables_chain_default_forward}" + " {" in nft_list_ruleset:
-                execute_command(f"nft add chain ip {args.nftables_table_filter} {args.nftables_chain_default_forward}" + " '{ type filter hook forward priority filter; policy accept; }'")
+                execute_command(f"nft add chain ip {args.nftables_table_filter} {args.nftables_chain_default_forward}" + " '{ type filter hook forward priority filter; policy accept; }'", run_with_sudo=args.run_with_sudo)
 
-            nft_list_ruleset = execute_command(f"nft list ruleset", print_command=False, print_output=False)
+            nft_list_ruleset = execute_command(f"nft list ruleset", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
             if not f"chain {args.nftables_chain_input}" + " {" in nft_list_ruleset:
                 log(f"filter chain {args.nftables_chain_input} missing, creating it")
-                execute_command(f"nft add chain ip {args.nftables_table_filter} {args.nftables_chain_input}")
-                add_nftables_rule(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_input} counter continue comment 'ipv4-in-KnockPort-continue'")
-                add_nftables_rule(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_default_input} counter jump {args.nftables_chain_input} comment 'ipv4-in-KnockPort-jump-to-{args.nftables_chain_input}'")
+                execute_command(f"nft add chain ip {args.nftables_table_filter} {args.nftables_chain_input}", run_with_sudo=args.run_with_sudo)
+                add_nftables_rule(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_input} counter continue comment 'ipv4-in-KnockPort-continue'", run_with_sudo=args.run_with_sudo)
+                add_nftables_rule(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_default_input} counter jump {args.nftables_chain_input} comment 'ipv4-in-KnockPort-jump-to-{args.nftables_chain_input}'", run_with_sudo=args.run_with_sudo)
             if not f"chain {args.nftables_chain_forward}" + " {" in nft_list_ruleset:
                 log(f"filter chain {args.nftables_chain_forward} missing, creating it")
-                execute_command(f"nft add chain ip {args.nftables_table_filter} {args.nftables_chain_forward}")
-                add_nftables_rule(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_forward} counter continue comment 'ipv4-in-KnockPort-continue'")
-                add_nftables_rule(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_default_forward} counter jump {args.nftables_chain_forward} comment 'ipv4-in-KnockPort-jump-to-{args.nftables_chain_forward}'")
+                execute_command(f"nft add chain ip {args.nftables_table_filter} {args.nftables_chain_forward}", run_with_sudo=args.run_with_sudo)
+                add_nftables_rule(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_forward} counter continue comment 'ipv4-in-KnockPort-continue'", run_with_sudo=args.run_with_sudo)
+                add_nftables_rule(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_default_forward} counter jump {args.nftables_chain_forward} comment 'ipv4-in-KnockPort-jump-to-{args.nftables_chain_forward}'", run_with_sudo=args.run_with_sudo)
 
         elif args.firewall_type == 'vyos':
-            nft_list_ruleset = execute_command(f"nft list ruleset", print_command=False, print_output=False)
+            nft_list_ruleset = execute_command(f"nft list ruleset", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
             if not f"chain {args.nftables_chain_input}" + " {" in nft_list_ruleset:
                 log(f"filter chain {args.nftables_chain_input} missing, running vyos 'set' commands to create it")
                 command = textwrap.dedent(f"""\
@@ -319,21 +321,21 @@ def setup_stealthy_ports(config, args, app):
 
         for command in firewall_commands:
             if re.search(r"nft (add|insert) rule", command):
-                add_nftables_rule(command)
+                add_nftables_rule(command, run_with_sudo=args.run_with_sudo)
             else:
                 execute_command(f"{command}", False)
 
     return firewall_commands
 
 def cleanup_stealthy_ports(firewall_commands, args):
-    """Clean up the firewall rules for stealthy ports"""
+    # Clean up the firewall rules for stealthy ports
     for command in firewall_commands:
         if args.firewall_type == 'iptables':
             if re.search(r"iptables -(A|I)", command):
-                delete_iptables_rule(command)
+                delete_iptables_rule(command, run_with_sudo=args.run_with_sudo)
         elif args.firewall_type == 'nftables' or args.firewall_type == 'vyos':
             if re.search(r"nft (add|insert) rule", command):
-                delete_nftables_rule(command)
+                delete_nftables_rule(command, run_with_sudo=args.run_with_sudo)
 
 def apply_nat_rules(config, args):
     if check_config_destinations_nonlocal(config):
@@ -346,20 +348,20 @@ def apply_nat_rules(config, args):
                     destination_ip = destination_parts[0]
                     destination_port = destination_parts[1] if len(destination_parts) > 1 else app_config['port']
                     if args.firewall_type == 'iptables':
-                        add_iptables_rule(f"iptables -t nat -A POSTROUTING -o {interface_int} -p {app_config['protocol']} -d {destination_ip} --dport {destination_port} -j MASQUERADE -m comment --comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'")
+                        add_iptables_rule(f"iptables -t nat -A POSTROUTING -o {interface_int} -p {app_config['protocol']} -d {destination_ip} --dport {destination_port} -j MASQUERADE -m comment --comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'", run_with_sudo=args.run_with_sudo)
 
                     # initialize tables and chains if missing
                     if args.firewall_type == 'nftables':
-                        nft_list_ruleset = execute_command(f"nft list ruleset", print_command=False, print_output=False)
+                        nft_list_ruleset = execute_command(f"nft list ruleset", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
                         if not f"table ip {args.nftables_table_nat}" + " {" in nft_list_ruleset:
-                            execute_command(f"nft add table ip {args.nftables_table_nat}")
+                            execute_command(f"nft add table ip {args.nftables_table_nat}", run_with_sudo=args.run_with_sudo)
                         if not f"chain {args.nftables_chain_default_prerouting}" + " {" in nft_list_ruleset:
-                            execute_command(f"nft add chain ip {args.nftables_table_nat} {args.nftables_chain_default_prerouting}" + " '{ type nat hook prerouting priority dstnat; policy accept; }'")
+                            execute_command(f"nft add chain ip {args.nftables_table_nat} {args.nftables_chain_default_prerouting}" + " '{ type nat hook prerouting priority dstnat; policy accept; }'", run_with_sudo=args.run_with_sudo)
                         if not f"chain {args.nftables_chain_default_postrouting}" + " {" in nft_list_ruleset:
-                            execute_command(f"nft add chain ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting}" + " '{ type nat hook postrouting priority srcnat; policy accept; }'")
+                            execute_command(f"nft add chain ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting}" + " '{ type nat hook postrouting priority srcnat; policy accept; }'", run_with_sudo=args.run_with_sudo)
 
                     if args.firewall_type == 'vyos':
-                        nft_list_ruleset = execute_command(f"nft list ruleset", print_command=False, print_output=False)
+                        nft_list_ruleset = execute_command(f"nft list ruleset", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
                         if not f"table ip {args.nftables_table_nat}" + " {" in nft_list_ruleset:
                             log("nat table missing, running vyos 'set' commands to initialize NAT chains")
                             command = textwrap.dedent("""\
@@ -381,15 +383,15 @@ def apply_nat_rules(config, args):
 
                     # adding NAT rules for each non-local destination
                     if args.firewall_type == 'nftables' :
-                        output_lines_count = execute_command(f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_postrouting} | wc -l", print_command=False, print_output=False)
+                        output_lines_count = execute_command(f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_postrouting} | wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
                         if output_lines_count == "5" :
                             # chain empty
-                            add_nftables_rule(f"nft add rule ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting} {app_config['protocol']} dport {destination_port} ip daddr {destination_ip} oifname {interface_int} counter masquerade comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'")
+                            add_nftables_rule(f"nft add rule ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting} {app_config['protocol']} dport {destination_port} ip daddr {destination_ip} oifname {interface_int} counter masquerade comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'", run_with_sudo=args.run_with_sudo)
                         else:
-                            add_nftables_rule(f"nft insert rule ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting} index 0 {app_config['protocol']} dport {destination_port} ip daddr {destination_ip} oifname {interface_int} counter masquerade comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'")
+                            add_nftables_rule(f"nft insert rule ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting} index 0 {app_config['protocol']} dport {destination_port} ip daddr {destination_ip} oifname {interface_int} counter masquerade comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'", run_with_sudo=args.run_with_sudo)
                     elif args.firewall_type == 'vyos' :
                         # vyos nft chains are never empty
-                        add_nftables_rule(f"nft insert rule ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting} index 0 {app_config['protocol']} dport {destination_port} ip daddr {destination_ip} oifname {interface_int} counter masquerade comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'")
+                        add_nftables_rule(f"nft insert rule ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting} index 0 {app_config['protocol']} dport {destination_port} ip daddr {destination_ip} oifname {interface_int} counter masquerade comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'", run_with_sudo=args.run_with_sudo)
 
 def cleanup_nat_rules(config, args):
     if check_config_destinations_nonlocal(config):
@@ -401,6 +403,6 @@ def cleanup_nat_rules(config, args):
                     destination_ip = destination_parts[0]
                     destination_port = destination_parts[1] if len(destination_parts) > 1 else app_config['port']
                     if args.firewall_type == 'iptables':
-                        delete_iptables_rule(f"iptables -t nat -A POSTROUTING -o {interface_int} -p {app_config['protocol']} -d {destination_ip} --dport {destination_port} -j MASQUERADE -m comment --comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'")
+                        delete_iptables_rule(f"iptables -t nat -A POSTROUTING -o {interface_int} -p {app_config['protocol']} -d {destination_ip} --dport {destination_port} -j MASQUERADE -m comment --comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'", run_with_sudo=args.run_with_sudo)
                     elif args.firewall_type == 'nftables' or args.firewall_type == 'vyos':
-                        delete_nftables_rule(f"nft add rule ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting} {app_config['protocol']} dport {destination_port} ip daddr {destination_ip} oifname {interface_int} counter masquerade comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'")
+                        delete_nftables_rule(f"nft add rule ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting} {app_config['protocol']} dport {destination_port} ip daddr {destination_ip} oifname {interface_int} counter masquerade comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'", run_with_sudo=args.run_with_sudo)

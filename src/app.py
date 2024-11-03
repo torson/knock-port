@@ -130,7 +130,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     commands.append(f"iptables -I FORWARD -o {interface_int} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-FWD-KnockPort-{interface_int}-{app_name}-{protocol}-{port_to_open}-{client_ip}'")
                     commands.append(f"iptables -t nat -A PREROUTING -i {interface_ext} -p {protocol} -s {client_ip} --dport {port_to_open} -j DNAT --to-destination {destination_ip}:{destination_port} -m comment --comment 'ipv4-PREROUTING-KnockPort-{interface_ext}-{app_name}-{protocol}-{client_ip}-{port_to_open}-{destination_ip}-{destination_port}-DNAT'")
             for command in commands:
-                add_iptables_rule(command)
+                add_iptables_rule(command, run_with_sudo=args.run_with_sudo)
         elif args.firewall_type == 'nftables' or args.firewall_type == 'vyos':
             if config[app_name]['destination'] == "local":
                 commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface_ext} counter accept comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'")
@@ -141,7 +141,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_forward} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} oifname {interface_int} counter accept comment 'ipv4-FWD-KnockPort-{interface_int}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'")
                     nft_rule = f"{protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface_ext} counter dnat to {destination_ip}:{destination_port} comment 'ipv4-PREROUTING-KnockPort-{interface_ext}-{app_name}-{protocol}-{client_ip}-{port_to_open}-{destination_ip}-{destination_port}-DNAT'"
                     if args.firewall_type == 'nftables':
-                        output_lines_count = execute_command(f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_prerouting} | wc -l", print_command=False, print_output=False)
+                        output_lines_count = execute_command(f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_prerouting} | wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
                         if output_lines_count == "5" :
                             # chain empty
                             commands.append(f"nft add rule ip {args.nftables_table_nat} {args.nftables_chain_default_prerouting} {nft_rule}")
@@ -151,7 +151,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                         # vyos nft chains are never empty
                         commands.append(f"nft insert rule ip {args.nftables_table_nat} {args.nftables_chain_default_prerouting} index 0 {nft_rule}")
             for command in commands:
-                add_nftables_rule(command)
+                add_nftables_rule(command, run_with_sudo=args.run_with_sudo)
 
 
         for command in commands:
