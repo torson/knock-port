@@ -10,3 +10,5 @@ var/knock-port-freeze-restart.sh
 tests/config.test.yaml
 .env
 src/__pycache__
+tests/*.key
+tests/*.pem
