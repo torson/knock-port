@@ -59,7 +59,7 @@ nohup python src/main.py -c config/config.yaml --firewall-type nftables --http-p
 
 Using as systemd service:
 ```
-cp var/knock-port.service.dist cp var/knock-port.service
+cp var/knock-port.service.dist var/knock-port.service
 # > update the app arguments
 cp var/knock-port.service /etc/systemd/system/knock-port.service
 systemctl daemon-reload
@@ -68,6 +68,7 @@ systemctl start knock-port.service
 systemctl status knock-port.service
 journalctl -u knock-port.service
 journalctl -fu knock-port.service
+
 ```
 
 ## How it works

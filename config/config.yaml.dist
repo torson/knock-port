@@ -16,10 +16,22 @@ openvpn:
     - secret456_https
   # destination: Can be "local" or "IP" or "IP:PORT" - "local" uses the local server, "IP:PORT" forwards requests to the specified IP address and port
   destination: local
-  protocol: tcp
+  protocol: udp
   duration: 86400   # 24h ; Duration in seconds
   # interface_ext: eth0  # optional, if different than global.interface_ext
   # interface_int: eth0  # optional, if different than global.interface_int
+  step2_https_duration: 5
+
+http:
+  port: 80   # WARNING: if you set here the same port as Knock-Port http port, then the requests will start going to the backend server and not Knock-Port and you'll loose access to Knock-Port . Same goes for HTTPS port
+  access_key_http:
+    - secret_http
+  access_key_https:
+    - secret_https
+  # destination: Can be "local" or "IP" or "IP:PORT" - "local" uses the local server, "IP:PORT" forwards requests to the specified IP address and port
+  destination: 192.168.0.40:80
+  protocol: tcp
+  duration: 86400   # 24h ; Duration in seconds
   step2_https_duration: 5
 
 # mysql:
