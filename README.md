@@ -81,6 +81,7 @@ journalctl -fu knock-port.service
 systemctl disable knock-port.service
 cp var/knock-port.timer /etc/systemd/system/knock-port.timer
 systemctl daemon-reload
+systemctl enable knock-port.timer
 ```
 
 ## How it works
