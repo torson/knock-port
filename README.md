@@ -49,10 +49,10 @@ sudo python src/main.py -c config/config.yaml --firewall-type nftables --http-po
 
 # Sample curl commands to test the server with the sample configuration
 # > they should be run one after the other (depending what step2_https_duration is set to)
-curl -m 1 -d 'app=app1&access_key=secret123_http' http://knock-port.example.com/1-{SECRET}
-curl -m 1 -d 'app=app1&access_key=secret456_https' -k https://knock-port.example.com/2-{SECRET}
+curl -d 'app=app1&access_key=secret123_http' -m 1 http://knock-port.example.com/1-{SECRET}
+curl -d 'app=app1&access_key=secret456_https' -k https://knock-port.example.com/2-{SECRET}
 
-# at this point the service port should be opened for your IP
+# at this point the service port should be open for your IP
 ```
 
 Using with nohup:
@@ -132,8 +132,8 @@ From this point onwards you need to provide additional header `token` in the cur
 ```
 #!/bin/bash
 read -p "2FA token: " TOKEN
-curl -m 1 -d 'app=app1&access_key=secret123_http&token=${TOKEN}' http://knock-port.example.com/1-{SECRET}
-curl -m 1 -d 'app=app1&access_key=secret456_https' -k https://knock-port.example.com/2-{SECRET}
+curl -d 'app=app1&access_key=secret123_http&token=${TOKEN}' -m 1 http://knock-port.example.com/1-{SECRET}
+curl -d 'app=app1&access_key=secret456_https' -k https://knock-port.example.com/2-{SECRET}
 ```
 
 A valid token can be used only once to prevent an attacker (sniffing the network) repeating the same request from another IP, so in case you fail to send the HTTPS request within the configured `step2_https_duration` value (if it's set to a low value, 5 for example), then you need to wait for the next token to generate
