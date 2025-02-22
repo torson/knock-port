@@ -129,8 +129,9 @@ python src/setup_2fa.py -k {access_key_http}
 
 From this point onwards you need to provide additional header `token` in the curl command :
 ```
-curl -m 1 -d 'app=app1&access_key=secret123_http&token=123456' http://knock-port.example.com/step-1-{SECRET}
-
+#!/bin/bash
+read -p "2FA token: " TOKEN
+curl -m 1 -d 'app=app1&access_key=secret123_http&token=${TOKEN}' http://knock-port.example.com/1-{SECRET}
 ```
 
 A valid token can be used only once to prevent an attacker (sniffing the network) repeating the same request from another IP, so in case you fail to send the HTTPS request within the configured `step2_https_duration` value (if it's set to a low value, 5 for example), then you need to wait for the next token to generate
