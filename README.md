@@ -60,7 +60,7 @@ nohup python src/main.py -c config/config.yaml --firewall-type nftables --http-p
 Using as systemd service:
 ```
 cp var/knock-port.service.dist var/knock-port.service
-# > update the app arguments
+# > update the app arguments inside knock-port.service
 cp var/knock-port.service /etc/systemd/system/knock-port.service
 systemctl daemon-reload
 systemctl enable knock-port.service
@@ -69,6 +69,14 @@ systemctl status knock-port.service
 journalctl -u knock-port.service
 journalctl -fu knock-port.service
 
+## on VyOs there needs to be a delay on boot
+# service needs to be disabled because we're using a timer (knock-port.timer)
+# to do a delayed start on boot, otherwise nftables are not yet properly loaded
+# which causes backend traffic not to get through even though Knock-Port
+# created all needed nftables rules
+systemctl disable knock-port.service
+cp var/knock-port.timer /etc/systemd/system/knock-port.timer
+systemctl daemon-reload
 ```
 
 ## How it works
