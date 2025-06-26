@@ -54,9 +54,15 @@ def nftables_rule_exists(command, output=False, pattern=r'^\S+\s+\S+\s+\S+\s+\S+
         grep_pattern = match.group(3)
         command_nft_list = f"nft -a list chain ip {table} {chain}"
         try:
-            command = f"{command_nft_list} | grep {grep_pattern} | grep handle ; true"
-            # log(f"Executing command: {command}")
-            rule = execute_command(command, print_command=False, print_output=False, run_with_sudo=run_with_sudo)
+            command1 = f"{command_nft_list}"
+            command2 = f"grep {grep_pattern}"
+            command3 = "grep handle"
+            try:
+                rule = execute_command_with_pipes(command=command1, command2=command2, command3=command3, print_command=False, print_output=False, run_with_sudo=run_with_sudo)
+            except Exception:
+                # If grep doesn't find anything, it will return non-zero exit code, which is expected
+                # This is equivalent to the "; true" that was in the original command
+                rule = ""
             if rule:
                 if output:
                     log(f"Rule exists : '{rule}'")
@@ -194,7 +200,10 @@ def setup_stealthy_ports(config, args, app):
             f"echo Drop incoming packets to {public_server_label} HTTP port"
         ]
         if args.firewall_type == 'nftables' :
-            output_lines_count = execute_command(f"nft list chain {args.nftables_table_filter} {args.nftables_chain_default_input} | wc -l", print_command=False, print_output=False)
+            try:
+                output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_filter} {args.nftables_chain_default_input}", command2="wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
+            except Exception:
+                output_lines_count = "0"
             if output_lines_count == "5" :
                 # chain empty
                 firewall_commands.append(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_default_input} tcp dport {http_port} iifname {config['global']['interface_ext']} counter drop comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-drop'")
@@ -218,7 +227,7 @@ def setup_stealthy_ports(config, args, app):
             f"echo Drop outgoing traffic from {public_server_label} HTTP port , allow only TCP packets for initial three-way TCP handshake so web-server is able to handle the request . Client will not receive a HTTP response"
         ]
         if args.firewall_type == 'nftables' :
-            output_lines_count = execute_command(f"nft list chain {args.nftables_table_filter} {args.nftables_chain_default_output} | wc -l", print_command=False, print_output=False)
+            output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_filter} {args.nftables_chain_default_output}", command2="wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
             if output_lines_count == "5" :
                 # chain empty
                 firewall_commands.append(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_default_output} tcp sport {http_port} oifname {config['global']['interface_int']} counter drop comment 'ipv4-OUT-KnockPort-{config['global']['interface_int']}-tcp-sport-{http_port}-drop'")
@@ -383,7 +392,10 @@ def apply_nat_rules(config, args):
 
                     # adding NAT rules for each non-local destination
                     if args.firewall_type == 'nftables' :
-                        output_lines_count = execute_command(f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_postrouting} | wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
+                        try:
+                            output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_postrouting}", command2="wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
+                        except Exception:
+                            output_lines_count = "0"
                         if output_lines_count == "5" :
                             # chain empty
                             add_nftables_rule(f"nft add rule ip {args.nftables_table_nat} {args.nftables_chain_default_postrouting} {app_config['protocol']} dport {destination_port} ip daddr {destination_ip} oifname {interface_int} counter masquerade comment 'ipv4-POSTROUTING-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{destination_ip}-{destination_port}-MASQUERADE'", run_with_sudo=args.run_with_sudo)

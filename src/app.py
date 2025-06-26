@@ -12,7 +12,7 @@ from wtforms import StringField
 from wtforms.validators import Optional, DataRequired, Length
 import warnings
 from threading import Thread, Lock
-from utils import log, log_err, execute_command
+from utils import log, log_err, execute_command_with_pipes
 from sessions import manage_sessions, monitor_stealthy_ports
 from firewall import add_iptables_rule, add_nftables_rule
 
@@ -141,7 +141,10 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_forward} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} oifname {interface_int} counter accept comment 'ipv4-FWD-KnockPort-{interface_int}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'")
                     nft_rule = f"{protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface_ext} counter dnat to {destination_ip}:{destination_port} comment 'ipv4-PREROUTING-KnockPort-{interface_ext}-{app_name}-{protocol}-{client_ip}-{port_to_open}-{destination_ip}-{destination_port}-DNAT'"
                     if args.firewall_type == 'nftables':
-                        output_lines_count = execute_command(f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_prerouting} | wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
+                        try:
+                            output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_prerouting}", command2="wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
+                        except Exception:
+                            output_lines_count = "0"
                         if output_lines_count == "5" :
                             # chain empty
                             commands.append(f"nft add rule ip {args.nftables_table_nat} {args.nftables_chain_default_prerouting} {nft_rule}")
