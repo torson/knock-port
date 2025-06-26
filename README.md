@@ -1,6 +1,8 @@
 
 # Knock-Port
 
+> Check a comprehensive wiki at https://deepwiki.com/torson/knock-port
+
 A port-knocking server with a HTTP+HTTPS request procedure to open service port(s) - either running locally or on an internal LAN host (forwarding the traffic).
 
 You can continue using that old application/service you love from public internet even though it might have security holes (most probably it's littered with them). Or use it for any latest service you're using since it most probably also has security holes. With Knock-Port you open such application/service port only for the IP you're doing the request procedure from.
