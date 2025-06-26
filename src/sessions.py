@@ -8,7 +8,7 @@ from firewall import (
     setup_stealthy_ports, apply_nat_rules
 )
 
-def manage_sessions(session_file, sessions, lock, firewall_type):
+def manage_sessions(session_file, sessions, lock, firewall_type, args):
     while True:
         current_time = time.time()
         with lock:
@@ -24,9 +24,9 @@ def manage_sessions(session_file, sessions, lock, firewall_type):
                     f.flush()
                     os.fsync(f.fileno())
                 if firewall_type == 'iptables':
-                    delete_iptables_rule(command)
+                    delete_iptables_rule(command, run_with_sudo=args.run_with_sudo)
                 elif firewall_type == 'nftables' or firewall_type == 'vyos':
-                    delete_nftables_rule(session['command'])
+                    delete_nftables_rule(session['command'], run_with_sudo=args.run_with_sudo)
         time.sleep(1)
 
 def monitor_stealthy_ports(config, stop_event, session_file, args, app):

@@ -1,6 +1,6 @@
 
 Flask==3.0.3
-PyYAML==6.0
+PyYAML==6.0.1
 sh==2.0.7
 requests==2.26.0
 docker==6.1.3

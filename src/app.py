@@ -190,7 +190,7 @@ def create_app(config_path, session_file, args):
     except FileNotFoundError:
         log("No existing session file found. Starting fresh.")
 
-    session_manager = Thread(target=manage_sessions, args=(session_file, sessions, lock, args.firewall_type))
+    session_manager = Thread(target=manage_sessions, args=(session_file, sessions, lock, args.firewall_type, args))
     session_manager.daemon = True
     session_manager.start()
 

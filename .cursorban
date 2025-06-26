@@ -3,7 +3,7 @@
 # from .gitignore
 .aider*
 *.output
-*.log
+# *.log
 # cache
 # config/*.yaml
 # config/2fa
