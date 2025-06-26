@@ -1,0 +1,20 @@
+## https://docs.cursor.com/context/ignore-files
+## https://docs.cursor.com/context/ignore-files#default-ignore-list
+## https://forum.cursor.com/t/questions-on-gitignore-cursorignore-cursorban/34713/16
+
+# from .gitignore
+.aider*
+*.output
+*.log
+# cache
+# config/*.yaml
+# config/2fa
+var/knock-port.service
+var/knock-port-freeze-restart.sh
+*.iso
+tests/config.test.yaml
+.env
+src/__pycache__
+tests/*.key
+tests/*.pem
+# nohup.out
