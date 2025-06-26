@@ -1,8 +1,7 @@
 import time
 import json
 import os
-from threading import Thread
-from utils import log, execute_command
+from utils import log, execute_command_with_pipes
 from firewall import (
     add_iptables_rule, delete_iptables_rule,
     add_nftables_rule, delete_nftables_rule,
@@ -38,12 +37,20 @@ def monitor_stealthy_ports(config, stop_event, session_file, args, app):
         if stop_event.is_set():
             break
         elif args.firewall_type == 'iptables':
-            command = f"iptables -n -v -L | grep ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-drop ; true"
+            command1 = "iptables -n -v -L"
+            command2 = f"grep ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-drop"
         elif args.firewall_type == 'nftables' or args.firewall_type == 'vyos':
             # on VyOs if you make a firewall change it will reset all chains to what is set up with set "set" commands
             # we're just checking for this one rule since it's most important
-            command = f"nft -a list chain ip {args.nftables_table_filter} {args.nftables_chain_default_input} | grep ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-drop ; true"
-        out = execute_command(command, print_command=True, print_output=True, run_with_sudo=args.run_with_sudo)
+            command1 = f"nft -a list chain ip {args.nftables_table_filter} {args.nftables_chain_default_input}"
+            command2 = f"grep ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-drop"
+
+        try:
+            out = execute_command_with_pipes(command=command1, command2=command2, print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
+        except Exception:
+            # If grep doesn't find anything, it will return non-zero exit code, which is expected
+            # This is equivalent to the "; true" that was in the original command
+            out = ""
         if not out:
             log("!!! Stealthy port rule for HTTP drop missing")
             log(" > re-applying all stealthy HTTP/HTTPS port rules")

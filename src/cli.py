@@ -1,5 +1,4 @@
 import argparse
-from utils import log
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Server Application")
