@@ -34,6 +34,18 @@ http:
   duration: 86400   # 24h ; Duration in seconds
   step2_https_duration: 5
 
+ssh:
+  port: 2222   # WARNING: don't set 22 here since you're most probably running sshd on port 22 on this server host
+  access_key_http:
+    - secret_http
+  access_key_https:
+    - secret_https
+  # destination: Can be "local" or "IP" or "IP:PORT" - "local" uses the local server, "IP:PORT" forwards requests to the specified IP address and port
+  destination: 192.168.0.42:22
+  protocol: tcp
+  duration: 86400   # 24h ; Duration in seconds
+  step2_https_duration: 5
+
 # mysql:
 #   port: 3306
 #   access_key_http: secret789_http
