@@ -7,10 +7,10 @@ def load_config(config_path):
     with open(config_path, 'r') as config_file:
         config = yaml.safe_load(config_file)
     # config validation
-    if config['global']['http_post_path'] == "/step-1-SECRET":
+    if config['global']['http_post_path'] == "/1-SECRET":
         log("Error: config global.http_post_path must not be default value '/step-1-SECRET'")
         sys.exit(1)
-    if config['global']['https_post_path'] == "/step-2-SECRET":
+    if config['global']['https_post_path'] == "/2-SECRET":
         log("Error: config global.https_post_path must not be default value '/step-2-SECRET'")
         sys.exit(1)
     return config

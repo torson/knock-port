@@ -1,0 +1,20 @@
+
+# Don't index SpecStory auto-save files, but allow explicit context inclusion via @ references
+.specstory/**
+
+# from .gitignore
+.aider*
+*.output
+*.log
+# cache
+# config/*.yaml
+# config/2fa
+var/knock-port.service
+var/knock-port-freeze-restart.sh
+*.iso
+tests/config.test.yaml
+.env
+src/__pycache__
+tests/*.key
+tests/*.pem
+nohup.out

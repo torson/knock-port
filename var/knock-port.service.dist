@@ -1,6 +1,10 @@
+# /etc/systemd/system/knock-port.service
+
+### instructions to set up
 # cp var/knock-port.service /etc/systemd/system/knock-port.service
 # systemctl daemon-reload
-# systemctl enable knock-port.service
+# # service needs to be disabled because we're using a timer (knock-port.timer) to do a delayed start on boot
+# systemctl disable knock-port.service
 # systemctl start knock-port.service
 # systemctl status knock-port.service
 # journalctl -u knock-port.service
@@ -8,7 +12,8 @@
 
 [Unit]
 Description=Port knocking service
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
@@ -24,8 +29,14 @@ ExecStartPre=/root/python-knockport/bin/pip install -r requirements.txt
 ExecStart=/root/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
 Restart=always
 Environment="PATH=/root/python-knockport/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-StandardOutput=append:/var/log/knock-port.log
-StandardError=inherit
+
+## alternatively output to a logfile
+# StandardOutput=append:/var/log/knock-port.log
+## stderr also to logfile
+# StandardError=append:/var/log/knock-port.log
+## .. or to systemd journal
+# StandardError=inherit
+
 TimeoutStopSec=5s
 
 [Install]
