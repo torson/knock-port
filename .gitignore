@@ -13,3 +13,5 @@ src/__pycache__
 tests/*.key
 tests/*.pem
 nohup.out
+
+.specstory/**

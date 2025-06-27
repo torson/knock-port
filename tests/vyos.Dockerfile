@@ -5,11 +5,23 @@ RUN echo 'alias ll="ls -alF"' >> ~/.bashrc && \
     echo "Installing python-pip3" && \
     echo "deb http://deb.debian.org/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list && \
     apt-get update && \
-    apt-get install -y python3-pip python3-venv
+    apt-get install -y python3-pip python3-venv sudo
+
+RUN adduser --disabled-password --gecos "" knockport && \
+    usermod -a -G vyattacfg knockport && \
+    echo "knockport ALL=NOPASSWD: /usr/sbin/iptables *" > /etc/sudoers.d/knockport && \
+    echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" >> /etc/sudoers.d/knockport && \
+    echo "knockport ALL=NOPASSWD: /usr/bin/echo *" >> /etc/sudoers.d/knockport && \
+    echo "knockport ALL=NOPASSWD: /usr/bin/grep *" >> /etc/sudoers.d/knockport && \
+    echo "knockport ALL=NOPASSWD: /usr/bin/vbash *" >> /etc/sudoers.d/knockport && \
+    echo "knockport ALL=NOPASSWD: /opt/vyatta/sbin/vyatta-cfg-cmd-wrapper *" >> /etc/sudoers.d/knockport && \
+    mkdir -p /home/knockport && \
+    chown knockport:users /home/knockport && \
+    python3 -m venv /home/knockport/venv && \
+    chown -R knockport:users /home/knockport/venv
 
 COPY requirements.txt /app/requirements.txt
 
 RUN echo "installing KnockPort requirements" && \
-    python3 -m venv ~/venv && \
-    cd /app && \
-    ~/venv/bin/pip install --no-cache-dir -r requirements.txt
+    chown knockport:users /app/requirements.txt && \
+    su - knockport -c "cd /app && ~/venv/bin/pip install --no-cache-dir -r requirements.txt"

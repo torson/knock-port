@@ -177,7 +177,7 @@ def setup_stealthy_ports(config, args, app):
         elif args.firewall_type == 'vyos':
             nft_list_ruleset = execute_command(f"nft list ruleset", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
             if not f"chain {args.nftables_chain_input}" + " {" in nft_list_ruleset:
-                log(f"filter chain {args.nftables_chain_input} missing, running vyos 'set' commands to create it")
+                log(f"Filter chain {args.nftables_chain_input} missing, running vyos 'set firewall' commands to create it")
                 command = textwrap.dedent(f"""\
                     sudo -u vyos vbash -c '
                         source /opt/vyatta/etc/functions/script-template
@@ -193,7 +193,14 @@ def setup_stealthy_ports(config, args, app):
                         commit
                     '
                 """)
-                execute_command(command)
+                if args.run_with_sudo:
+                    log("WARNING: You're running with --run-with-sudo, you probably need to manually run the following command to initialize the filter chain, since you're probably running under a limited-permission user that can't run 'sudo -u vyos vbash'")
+                    log(command)
+                    sys.exit(1)
+                else:
+                    execute_command(command)
+            else:
+                log(f"Filter chain {args.nftables_chain_input} present")
 
         # set up stealth rules
         firewall_commands = firewall_commands + [
@@ -375,7 +382,7 @@ def apply_nat_rules(config, args):
                     if args.firewall_type == 'vyos':
                         nft_list_ruleset = execute_command(f"nft list ruleset", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
                         if not f"table ip {args.nftables_table_nat}" + " {" in nft_list_ruleset:
-                            log("nat table missing, running vyos 'set' commands to initialize NAT chains")
+                            log("NAT table missing, running vyos 'set nat destination' non-functional commands to initialize NAT chains")
                             command = textwrap.dedent("""\
                                 sudo -u vyos vbash -c '
                                     source /opt/vyatta/etc/functions/script-template
@@ -391,7 +398,14 @@ def apply_nat_rules(config, args):
                                     commit
                                 '
                             """)
-                            execute_command(command)
+                            if args.run_with_sudo:
+                                log("WARNING: You're running with --run-with-sudo, you probably need to manually run the following command to initialize the NAT chains, since you're probably running under a limited-permission user that can't run 'sudo -u vyos vbash'")
+                                log(command)
+                                sys.exit(1)
+                            else:
+                                execute_command(command)
+                        else:
+                            log("NAT table present")
 
                     # adding NAT rules for each non-local destination
                     if args.firewall_type == 'nftables' :

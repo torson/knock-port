@@ -221,7 +221,7 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
     if [ -f ${BASE_DIR_PATH}/tests/.env ]; then
         source ${BASE_DIR_PATH}/tests/.env
     fi
-    bash -x ${BASE_DIR_PATH}/tests/create_vyos_docker_image.sh || exit 1
+    bash ${BASE_DIR_PATH}/tests/create_vyos_docker_image.sh || exit 1
 
     # install app dependencies into the VyOs Docker image
     run_command docker build -f tests/vyos.Dockerfile --build-arg VYOS_ROLLING_VERSION="${VYOS_ROLLING_VERSION}" -t vyos:${VYOS_ROLLING_VERSION}-extras .
@@ -251,6 +251,7 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
             set system name-server 8.8.8.8
             set service dns forwarding listen-address 127.0.0.1
             set service dns forwarding allow-from 0.0.0.0/0
+            set system login user knockport authentication plaintext-password knockport
             commit
             exit
         '
@@ -268,7 +269,7 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
     #         ~/venv/bin/pip install --no-cache-dir -r requirements.txt
     #     '
 
-    docker exec port-knock-server bash -c '
+    docker exec -u knockport port-knock-server bash -c '
             echo "installing KnockPort requirements"
             cd /app
             ~/venv/bin/pip install --no-cache-dir -r requirements.txt
@@ -278,6 +279,9 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
 
     log "Setting up shell environmnet"
     docker exec -u vyos port-knock-server vbash -c '
+            echo alias\ ll="ls\ -alF" >> ~/.bashrc
+        '
+    docker exec -u knockport port-knock-server vbash -c '
             echo alias\ ll="ls\ -alF" >> ~/.bashrc
         '
 
@@ -351,11 +355,38 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
     #         exit
     #     '
 
+    log "Initializing firewall because we're later running KnockPort with --run-with-sudo so it doesn't have permission to run 'sudo -u vyos vbash'"
+    docker exec -u vyos port-knock-server vbash -c '
+            source /opt/vyatta/etc/functions/script-template
+            configure
+            echo "Initialize NAT table"
+                set nat destination rule 101 description 'blank-DNAT-rule'
+                set nat destination rule 101 destination port '65535'
+                set nat destination rule 101 inbound-interface name 'eth0'
+                set nat destination rule 101 protocol 'tcp'
+                set nat destination rule 101 translation address '10.255.255.254'
+                set nat destination rule 101 translation port '65535'
+                commit
+                del nat destination rule 101
+                commit
+            echo "Initialize filter chains"
+                echo "Create chain IN-KnockPort with default continue rule"
+                set firewall ipv4 name IN-KnockPort default-action continue
+                set firewall ipv4 input filter rule 9999 action jump
+                set firewall ipv4 input filter rule 9999 jump-target IN-KnockPort
+                echo "Create chain FWD-KnockPort with default continue rule"
+                set firewall ipv4 name FWD-KnockPort default-action continue
+                set firewall ipv4 forward filter rule 9999 action jump
+                set firewall ipv4 forward filter rule 9999 jump-target FWD-KnockPort
+                commit
+            exit
+        '
+
     log "Starting KnockPort"
-    log docker exec port-knock-server vbash -c \
+    log docker exec -u knockport port-knock-server vbash -c \
         'cd /app && ~/venv/bin/python src/main.py -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --run-with-sudo > tests/run_docker_tests.server.vyos.log 2>&1 &'
 
-    docker exec port-knock-server vbash -c \
+    docker exec -u knockport port-knock-server vbash -c \
         'cd /app && ~/venv/bin/python src/main.py -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --run-with-sudo > tests/run_docker_tests.server.vyos.log 2>&1 &'
     # app init takes a bit longer on clean vyos as it creates firewall rules using the 'set' commands which are slow
     sleep 15
