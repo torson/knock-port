@@ -1,4 +1,3 @@
-
 # Knock-Port
 
 > Check a comprehensive wiki at https://deepwiki.com/torson/knock-port
@@ -9,7 +8,7 @@ You can continue having that old application/service you love to use faced to pu
 
 Of course if there's a rouge actor on your network (public WiFi ;) ), then Knock-Port is of no benefit in protecting your service(s) since the actor has the same access as you - the same public IP.
 
-Knock-Port needs permission to modify kernel-level firewall settings, so it must be run as root user.
+Knock-Port needs permission to modify kernel-level firewall settings. It can be run as root user, or as a regular user with sudo permissions using the `--run-with-sudo` flag.
 
 It supports iptables, nftables and VyOS specific nftables.
 
@@ -43,11 +42,14 @@ pip install -r requirements.txt
 python src/main.py -h
 
 # for generating self-signed certificate run this
-# > 2 fiels get created: tests/knock-port.testing.key , tests/knock-port.testing.pem
+# > 2 files get created: tests/knock-port.testing.key , tests/knock-port.testing.pem
 GENERATE_CERTIFICATE_ONLY=true tests/run_docker_tests.sh
 
-# using nftables
+# using nftables as root user
 sudo python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
+
+# using nftables as non-root user (recommended)
+python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --run-with-sudo
 
 # Sample curl commands to test the server with the sample configuration
 # > they should be run one after the other (depending what step2_https_duration is set to)
@@ -57,16 +59,57 @@ curl -d 'app=app1&access_key=secret456_https' -k https://knock-port.example.com/
 # at this point the service port should be open for your IP
 ```
 
-Using with sudoers config:
-```
-# if using iptables
-echo "knockport ALL=NOPASSWD: /usr/sbin/iptables *" > /etc/sudoers.d/knockport
-# if using nftables
-echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" > /etc/sudoers.d/knockport
+## Running as Non-Root User (Recommended)
 
-# don't run the app with sudo but add argument '--run-with-sudo'
-# this will then run all firewall commands with sudo
+For better security, KnockPort can run as a regular user with sudo permissions for firewall management:
+
+### 1. Create a dedicated user (optional but recommended):
+```bash
+sudo adduser knockport
+```
+
+### 2. Set up sudo permissions:
+```bash
+# Copy the provided sudoers template
+sudo cp var/knockport-sudoers.dist /etc/sudoers.d/knockport
+
+# If you're using a different username, edit the file:
+sudo nano /etc/sudoers.d/knockport
+
+# Set proper permissions
+sudo chmod 440 /etc/sudoers.d/knockport
+
+# Verify configuration
+sudo visudo -c
+```
+
+### 3. Run KnockPort with --run-with-sudo:
+```bash
+# Switch to the knockport user
+sudo su - knockport
+
+# Run KnockPort (example with nftables)
 python src/main.py -c config/config.yaml --firewall-type nftables --http-port 8080 --https-port 4431 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --run-with-sudo
+```
+
+### Manual sudoers setup (alternative):
+```bash
+# For iptables
+echo "knockport ALL=NOPASSWD: /usr/sbin/iptables *" | sudo tee /etc/sudoers.d/knockport
+
+# For nftables
+echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" | sudo tee -a /etc/sudoers.d/knockport
+
+# For basic commands
+echo "knockport ALL=NOPASSWD: /usr/bin/echo *" | sudo tee -a /etc/sudoers.d/knockport
+echo "knockport ALL=NOPASSWD: /usr/bin/grep *" | sudo tee -a /etc/sudoers.d/knockport
+```
+
+## Running as Root User (Legacy)
+
+KnockPort can also be run directly as root (less secure):
+```bash
+sudo python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
 ```
 
 Using with nohup:
@@ -78,7 +121,9 @@ nohup sudo python src/main.py -c config/config.yaml --firewall-type nftables --h
 Using with systemd:
 ```
 cp var/knock-port.service.dist var/knock-port.service
-# > update the app arguments inside knock-port.service
+# Update the app arguments inside knock-port.service
+# For non-root user: add --run-with-sudo flag and set User=knockport
+# For root user: remove --run-with-sudo flag and set User=root
 cp var/knock-port.service /etc/systemd/system/knock-port.service
 systemctl daemon-reload
 systemctl enable knock-port.service
@@ -128,7 +173,7 @@ So step-1 is to hide the setup from public, and step-2 is to secure the setup (t
 
 - Due to iptables/nftables rules, the server host does not send an ACK back for the HTTP POST data (web server sends it, but it's dropped by the firewall).
 - The TCP stack on the client side waits for an ACK or response. As the ACK never comes there's TCP stack retransmission:
-- After a timeout, the client’s TCP stack retransmits the HTTP POST request.
+- After a timeout, the client's TCP stack retransmits the HTTP POST request.
 - This continues, following the exponential backoff strategy, until it reaches the maximum retransmission limit.
 
 Note: After the addition of firewall level filtering of HTTP URL path (which was not in the initial design), this response blocking is actually not really needed anymore, but I still left it in.
@@ -157,7 +202,6 @@ In addition of securing the services ports, enabling 2FA also shields Knock-Port
 
 
 ## TODO
-- starting Knock-Port with regular user that has sudo permissions for managing firewall rules instead of starting under root user, so that the process doesn't run as root in case of a breach.
 - OTP token (separate from 2FA) added to HTTP request so network sniffing becomes unuseful, the attacker needs to break into the client computer. The token needs to be generated on the client side so it must have the token generation set up in addition to just using curl
 
 

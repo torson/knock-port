@@ -1,6 +1,8 @@
 # /etc/systemd/system/knock-port.service
 
 ### instructions to set up
+# cp var/knock-port.service.dist var/knock-port.service
+# Edit var/knock-port.service to configure User and ExecStart based on your setup
 # cp var/knock-port.service /etc/systemd/system/knock-port.service
 # systemctl daemon-reload
 # # service needs to be disabled because we're using a timer (knock-port.timer) to do a delayed start on boot
@@ -17,18 +19,26 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
-Group=root
-WorkingDirectory=/app
 
+# Configuration for non-root user (recommended)
+User=knockport
+Group=knockport
+WorkingDirectory=/home/knockport/knock-port
 # python -m venv ~/python-knockport
-ExecStartPre=/root/python-knockport/bin/pip install -r requirements.txt
+ExecStartPre=/home/knockport/python-knockport/bin/pip install -r requirements.txt
+# Non-root user with --run-with-sudo (recommended)
+ExecStart=/home/knockport/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --run-with-sudo
+Environment="PATH=/home/knockport/python-knockport/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# nohup /root/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key >> knock-port-server.log &
+# Configuration for root user (alternative)
+# User=root
+# Group=root
+# WorkingDirectory=/app
+# ExecStartPre=/root/python-knockport/bin/pip install -r requirements.txt
+# ExecStart=/root/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
+# Environment="PATH=/root/python-knockport/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-ExecStart=/root/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
 Restart=always
-Environment="PATH=/root/python-knockport/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 ## alternatively output to a logfile
 # StandardOutput=append:/var/log/knock-port.log

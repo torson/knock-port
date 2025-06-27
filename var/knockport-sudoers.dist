@@ -1,0 +1,24 @@
+# Sudoers configuration for KnockPort
+# This file allows the knockport user to run firewall management commands without password
+# Copy this file to /etc/sudoers.d/knockport and adjust the username if needed
+
+# For iptables firewall management
+knockport ALL=NOPASSWD: /usr/sbin/iptables *
+
+# For nftables firewall management
+knockport ALL=NOPASSWD: /usr/sbin/nft *
+
+# For basic system commands used by KnockPort
+knockport ALL=NOPASSWD: /usr/bin/echo *
+knockport ALL=NOPASSWD: /usr/bin/grep *
+
+# For VyOS environments (if using VyOS)
+# knockport ALL=NOPASSWD: /usr/bin/vbash *
+# knockport ALL=NOPASSWD: /opt/vyatta/sbin/vyatta-cfg-cmd-wrapper *
+# knockport ALL=(vyos) NOPASSWD: ALL
+
+# Instructions:
+# 1. Copy this file: sudo cp var/knockport-sudoers.dist /etc/sudoers.d/knockport
+# 2. Set proper permissions: sudo chmod 440 /etc/sudoers.d/knockport
+# 3. Verify configuration: sudo visudo -c
+# 4. Run KnockPort with: python src/main.py ... --run-with-sudo
