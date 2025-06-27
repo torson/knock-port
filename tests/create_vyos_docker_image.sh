@@ -18,14 +18,14 @@ if [ -f .env ]; then
 fi
 
 # https://docs.vyos.io/en/latest/installation/virtual/docker.html
-if [ ! -f vyos-${VYOS_ROLLING_VERSION}-generic-amd64.iso ]; then
-    wget https://github.com/vyos/vyos-nightly-build/releases/download/${VYOS_ROLLING_VERSION}/vyos-${VYOS_ROLLING_VERSION}-generic-amd64.iso
+if [ ! -f vyos-${VYOS_ROLLING_VERSION}${VYOS_ISO_NAME_SUFFIX}.iso ]; then
+    wget https://github.com/vyos/vyos-nightly-build/releases/download/${VYOS_ROLLING_VERSION}/vyos-${VYOS_ROLLING_VERSION}${VYOS_ISO_NAME_SUFFIX}.iso
 fi
 mkdir -p vyos-docker ; cd vyos-docker
-ln -s ../vyos-${VYOS_ROLLING_VERSION}-generic-amd64.iso vyos-${VYOS_ROLLING_VERSION}-generic-amd64.iso
+ln -s ../vyos-${VYOS_ROLLING_VERSION}${VYOS_ISO_NAME_SUFFIX}.iso vyos-${VYOS_ROLLING_VERSION}${VYOS_ISO_NAME_SUFFIX}.iso
 
 mkdir -p rootfs
-sudo mount -o loop vyos-${VYOS_ROLLING_VERSION}-generic-amd64.iso rootfs
+sudo mount -o loop vyos-${VYOS_ROLLING_VERSION}${VYOS_ISO_NAME_SUFFIX}.iso rootfs
 
 # assuming we're running Debian flavour
 if ! dpkg -l | grep squashfs-tools ; then

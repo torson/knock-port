@@ -7,7 +7,7 @@
 *.output
 *.log
 # cache
-# config/*.yaml
+config/*.yaml
 # config/2fa
 var/knock-port.service
 var/knock-port-freeze-restart.sh

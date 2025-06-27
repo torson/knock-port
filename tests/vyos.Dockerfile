@@ -1,4 +1,5 @@
-FROM vyos:1.5-rolling-202405260021
+ARG VYOS_ROLLING_VERSION=none
+FROM vyos:${VYOS_ROLLING_VERSION}
 
 RUN echo 'alias ll="ls -alF"' >> ~/.bashrc && \
     echo "Installing python-pip3" && \

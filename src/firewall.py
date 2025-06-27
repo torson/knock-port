@@ -201,7 +201,7 @@ def setup_stealthy_ports(config, args, app):
         ]
         if args.firewall_type == 'nftables' :
             try:
-                output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_filter} {args.nftables_chain_default_input}", command2="wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
+                output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_filter} {args.nftables_chain_default_input}", command2="wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo).strip()
             except Exception:
                 output_lines_count = "0"
             if output_lines_count == "5" :
@@ -227,7 +227,10 @@ def setup_stealthy_ports(config, args, app):
             f"echo Drop outgoing traffic from {public_server_label} HTTP port , allow only TCP packets for initial three-way TCP handshake so web-server is able to handle the request . Client will not receive a HTTP response"
         ]
         if args.firewall_type == 'nftables' :
-            output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_filter} {args.nftables_chain_default_output}", command2="wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
+            try:
+                output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_filter} {args.nftables_chain_default_output}", command2="wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo).strip()
+            except Exception:
+                output_lines_count = "0"
             if output_lines_count == "5" :
                 # chain empty
                 firewall_commands.append(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_default_output} tcp sport {http_port} oifname {config['global']['interface_int']} counter drop comment 'ipv4-OUT-KnockPort-{config['global']['interface_int']}-tcp-sport-{http_port}-drop'")
@@ -261,13 +264,13 @@ def setup_stealthy_ports(config, args, app):
                         if args.nftables_chain_input == args.nftables_chain_default_input:
                             firewall_commands.append(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_input} {app_config['protocol']} dport {app_config['port']} iifname {interface_ext} counter drop comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{app_config['protocol']}-{app_config['port']}-drop'")
                         else:
-                            continue_command = f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_input} counter continue comment 'none'"
+                            continue_command = f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_input} counter continue comment 'ipv4-in-KnockPort-continue'"
                             pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+)\s+\S+\s+(continue)\s+.+'
-                            continue_command_handle = nftables_rule_exists(continue_command, False, pattern)
+                            continue_command_handle = nftables_rule_exists(continue_command, False, pattern, run_with_sudo=args.run_with_sudo)
                             if continue_command_handle:
                                 firewall_commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_input} handle {continue_command_handle} {app_config['protocol']} dport {app_config['port']} iifname {interface_ext} counter drop comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{app_config['protocol']}-{app_config['port']}-drop'")
                             else:
-                                log("Error: Can't find the continue rule in chain {args.nftables_table_filter} {args.nftables_chain_input}")
+                                log(f"Error: Can't find the continue rule in chain {args.nftables_table_filter} {args.nftables_chain_input}")
                                 sys.exit(1)
                     else:
                         firewall_commands = firewall_commands + [
@@ -276,13 +279,13 @@ def setup_stealthy_ports(config, args, app):
                         if args.nftables_chain_input == args.nftables_chain_default_input:
                             firewall_commands.append(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_forward} {app_config['protocol']} dport {app_config['port']} oifname {interface_int} counter drop comment 'ipv4-FWD-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{app_config['port']}-drop'")
                         else:
-                            continue_command = f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_forward} counter continue comment 'none'"
+                            continue_command = f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_forward} counter continue comment 'ipv4-in-KnockPort-continue'"
                             pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+)\s+\S+\s+(continue)\s+.+'
-                            continue_command_handle = nftables_rule_exists(continue_command, False, pattern)
+                            continue_command_handle = nftables_rule_exists(continue_command, False, pattern, run_with_sudo=args.run_with_sudo)
                             if continue_command_handle:
                                 firewall_commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_forward} handle {continue_command_handle} {app_config['protocol']} dport {app_config['port']} oifname {interface_int} counter drop comment 'ipv4-FWD-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{app_config['port']}-drop'")
                             else:
-                                log("Error: Can't find the continue rule in chain {args.nftables_table_filter} {args.nftables_chain_forward}")
+                                log(f"Error: Can't find the continue rule in chain {args.nftables_table_filter} {args.nftables_chain_forward}")
                                 sys.exit(1)
 
         elif args.firewall_type == 'vyos':
@@ -292,11 +295,11 @@ def setup_stealthy_ports(config, args, app):
             # looking for the jump rule to the separate chain args.nftables_chain_input or args.nftables_chain_forward , we need to add this drop rule after the jump rule
             jump_command = f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_default_input} counter jump {args.nftables_chain_input} comment 'none'"
             pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+)\s+\S+\s+jump\s+(\S+)\s+comment\s.+'
-            jump_command_handle = nftables_rule_exists(jump_command, False, pattern)
+            jump_command_handle = nftables_rule_exists(jump_command, False, pattern, run_with_sudo=args.run_with_sudo)
             if jump_command_handle:
                 firewall_commands.append(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_default_input} handle {jump_command_handle} tcp dport {https_port} counter drop comment 'ipv4-IN-KnockPort-tcp-dport-{https_port}-drop'")
             else:
-                log("Error: Can't find the jump rule to {args.nftables_chain_input} in chain {args.nftables_table_filter} {args.nftables_chain_default_input}")
+                log(f"Error: Can't find the jump rule to {args.nftables_chain_input} in chain {args.nftables_table_filter} {args.nftables_chain_default_input}")
                 sys.exit(1)
 
             for app_name, app_config in config.items():
@@ -307,25 +310,25 @@ def setup_stealthy_ports(config, args, app):
                         firewall_commands = firewall_commands + [
                             "echo Drop incoming packets to Services ports"
                         ]
-                        continue_command = f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_input} counter continue comment 'none'"
+                        continue_command = f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_input} counter continue comment 'ipv4-in-KnockPort-continue'"
                         pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+)\s+\S+\s+(continue)\s+.+'
-                        continue_command_handle = nftables_rule_exists(continue_command, False, pattern)
+                        continue_command_handle = nftables_rule_exists(continue_command, False, pattern, run_with_sudo=args.run_with_sudo)
                         if continue_command_handle:
                             firewall_commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_input} handle {continue_command_handle} {app_config['protocol']} dport {app_config['port']} iifname {interface_ext} counter drop comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{app_config['protocol']}-{app_config['port']}-drop'")
                         else:
-                            log("Error: Can't find the continue rule in chain {args.nftables_table_filter} {args.nftables_chain_input}")
+                            log(f"Error: Can't find the continue rule in chain {args.nftables_table_filter} {args.nftables_chain_input}")
                             sys.exit(1)
                     else:
                         firewall_commands = firewall_commands + [
                             "echo Drop incoming packets to forwarded Services ports"
                         ]
-                        continue_command = f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_forward} counter continue comment 'none'"
+                        continue_command = f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_forward} counter continue comment 'ipv4-in-KnockPort-continue'"
                         pattern = r'^\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+)\s+\S+\s+(continue)\s+.+'
-                        continue_command_handle = nftables_rule_exists(continue_command, False, pattern)
+                        continue_command_handle = nftables_rule_exists(continue_command, False, pattern, run_with_sudo=args.run_with_sudo)
                         if continue_command_handle:
                             firewall_commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_forward} handle {continue_command_handle} {app_config['protocol']} dport {app_config['port']} oifname {interface_int} counter drop comment 'ipv4-FWD-KnockPort-{interface_int}-{app_name}-{app_config['protocol']}-{app_config['port']}-drop'")
                         else:
-                            log("Error: Can't find the continue rule in chain {args.nftables_table_filter} {args.nftables_chain_forward}")
+                            log(f"Error: Can't find the continue rule in chain {args.nftables_table_filter} {args.nftables_chain_forward}")
                             sys.exit(1)
 
         for command in firewall_commands:
@@ -393,7 +396,7 @@ def apply_nat_rules(config, args):
                     # adding NAT rules for each non-local destination
                     if args.firewall_type == 'nftables' :
                         try:
-                            output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_postrouting}", command2="wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
+                            output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_postrouting}", command2="wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo).strip()
                         except Exception:
                             output_lines_count = "0"
                         if output_lines_count == "5" :

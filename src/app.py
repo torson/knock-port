@@ -142,7 +142,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     nft_rule = f"{protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface_ext} counter dnat to {destination_ip}:{destination_port} comment 'ipv4-PREROUTING-KnockPort-{interface_ext}-{app_name}-{protocol}-{client_ip}-{port_to_open}-{destination_ip}-{destination_port}-DNAT'"
                     if args.firewall_type == 'nftables':
                         try:
-                            output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_prerouting}", command2="wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
+                            output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_nat} {args.nftables_chain_default_prerouting}", command2="wc -l", print_command=False, print_output=False, run_with_sudo=args.run_with_sudo).strip()
                         except Exception:
                             output_lines_count = "0"
                         if output_lines_count == "5" :
