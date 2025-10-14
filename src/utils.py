@@ -15,13 +15,13 @@ def log_err(text):
     message = "%s: %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), text)
     print(message, end='', file=sys.stderr, flush=True)
 
-def execute_command_with_pipes(command, command2, command3=None , print_command=True, print_output=True, run_with_sudo=False):
+def execute_command_with_pipes(command, command2, command3=None , print_command=True, print_output=True, run_with_sudo=False, id="-"):
     # print_command=True
     # print_output=True
     # log(f"print_command: {print_command}, print_output: {print_output}, run_with_sudo: {run_with_sudo}, command: {command}, command2: {command2}")
     if run_with_sudo:
         if print_command:
-            log(f"Executing command: sudo {command}")
+            log(f"[{id}] execute_command_with_pipes , Executing command: sudo {command}")
         if command.startswith("echo "):
             out=str(bash('-c', command)).strip()
         else:
@@ -51,19 +51,20 @@ def execute_command_with_pipes(command, command2, command3=None , print_command=
                 errors = errors.decode()
 
     else:
+        # TODO: not even implemented :D
         if print_command:
-            log(f"Executing command: {command}")
+            log(f"[{id}] execute_command_with_pipes , Executing command: {command}")
         out=str(bash('-c', command)).strip()
     if out:
         if print_output:
             log(out)
     return out
 
-def execute_command(command, print_command=True, print_output=True, run_with_sudo=False):
+def execute_command(command, print_command=True, print_output=True, run_with_sudo=False, id="-"):
     # log(f"print_command: {print_command}, print_output: {print_output}, run_with_sudo: {run_with_sudo}, command: {command}")
     if run_with_sudo:
         if print_command:
-            log(f"Executing command: sudo {command}")
+            log(f"[{id}] execute_command , Executing command: sudo {command}")
         if command.startswith("echo "):
             out=str(bash('-c', command)).strip()
         else:
@@ -77,7 +78,7 @@ def execute_command(command, print_command=True, print_output=True, run_with_sud
             # out=str(bash('-c', f"sudo {command}")).strip()
     else:
         if print_command:
-            log(f"Executing command: {command}")
+            log(f"[{id}] execute_command , Executing command: {command}")
         out=str(bash('-c', command)).strip()
     if out:
         if print_output:

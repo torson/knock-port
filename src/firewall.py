@@ -1,14 +1,18 @@
 import re
 import sys
+import random
+import string
 from utils import log, log_err, execute_command, execute_command_with_pipes, string_to_hex_and_bit_length, remove_prefix
 from config import check_config_destinations_nonlocal
 import textwrap
 
 ## iptables
 def iptables_rule_exists(command, output=False, run_with_sudo=False):
+    # Generate a 4-character random string
+    random_str = ''.join(random.choices(string.ascii_letters + string.digits, k=4))
     pattern = r'^\S+\s+\S+\s+(\S+)\s+.*comment\s\'([^\']+)\''
-    log(f"iptables_rule_exists , command: {command}")
-    log(f"iptables_rule_exists , pattern: {pattern}")
+    log(f"[{random_str}] iptables_rule_exists , command: {command}")
+    log(f"[{random_str}] iptables_rule_exists , pattern: {pattern}")
     match = re.search(pattern, command)
     if match:
         table = match.group(1)
@@ -19,20 +23,20 @@ def iptables_rule_exists(command, output=False, run_with_sudo=False):
         try:
             command1 = f"{command_rules_list}"
             command2 = f"grep {comment}"
-            log(f"Executing command: {command1} | {command2}")
-            rule = execute_command_with_pipes(command=command1, command2=command2, print_command=True, print_output=True, run_with_sudo=run_with_sudo)
+            log(f"[{random_str}] iptables_rule_exists , Executing command: {command1} | {command2}")
+            rule = execute_command_with_pipes(command=command1, command2=command2, print_command=True, print_output=True, run_with_sudo=run_with_sudo, id=random_str)
             if rule:
                 if output:
-                    log(f"Rule exists : '{rule}'")
+                    log(f"[{random_str}] iptables_rule_exists , Rule exists : '{rule}'")
                 return True
             else:
                 if output:
-                    log(f"Rule doesn't exist : '{rule}'")
+                    log(f"[{random_str}] iptables_rule_exists , Rule doesn't exist : '{rule}'")
                 return False
         except Exception as e:
-            log_err(f"Error during operations: {e}")
+            log_err(f"[{random_str}] iptables_rule_exists , Error during operations: {e}")
     else:
-        log_err(f"iptables : regex parsing of command failed : {command}")
+        log_err(f"[{random_str}] iptables_rule_exists , iptables : regex parsing of command failed : {command}")
 
 def add_iptables_rule(command, run_with_sudo=False):
     if not iptables_rule_exists(command, output=False, run_with_sudo=run_with_sudo):
