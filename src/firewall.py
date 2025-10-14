@@ -194,7 +194,7 @@ def setup_stealthy_ports(config, args, app):
                     '
                 """)
                 if args.run_with_sudo:
-                    log("WARNING: You're running with --run-with-sudo, you probably need to manually run the following command to initialize the filter chain, since you're probably running under a limited-permission user that can't run 'sudo -u vyos vbash'")
+                    log("WARNING: You're running with --run-with-sudo, you need to manually run the following command to initialize the filter chain, since you're probably running under a limited-permission user that can't run 'sudo -u vyos vbash'")
                     log(command)
                     sys.exit(1)
                 else:
@@ -399,7 +399,7 @@ def apply_nat_rules(config, args):
                                 '
                             """)
                             if args.run_with_sudo:
-                                log("WARNING: You're running with --run-with-sudo, you probably need to manually run the following command to initialize the NAT chains, since you're probably running under a limited-permission user that can't run 'sudo -u vyos vbash'")
+                                log("WARNING: You're running with --run-with-sudo, you need to manually run the following command to initialize the NAT chains, since you're probably running under a limited-permission user that can't run 'sudo -u vyos vbash'")
                                 log(command)
                                 sys.exit(1)
                             else:

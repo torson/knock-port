@@ -8,11 +8,6 @@ knockport ALL=NOPASSWD: /usr/sbin/iptables *
 # For nftables firewall management
 knockport ALL=NOPASSWD: /usr/sbin/nft *
 
-# For VyOS environments (if using VyOS)
-# knockport ALL=NOPASSWD: /usr/bin/vbash *
-# knockport ALL=NOPASSWD: /opt/vyatta/sbin/vyatta-cfg-cmd-wrapper *
-# knockport ALL=(vyos) NOPASSWD: ALL
-
 # Instructions:
 # 1. Copy this file: sudo cp var/knockport-sudoers.dist /etc/sudoers.d/knockport
 # 2. Set proper permissions: sudo chmod 440 /etc/sudoers.d/knockport
