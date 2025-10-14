@@ -7,8 +7,8 @@ import textwrap
 ## iptables
 def iptables_rule_exists(command, output=False, run_with_sudo=False):
     pattern = r'^\S+\s+\S+\s+(\S+)\s+.*comment\s\'([^\']+)\''
-    # log(f"iptables_rule_exists , command: {command}")
-    # log(f"iptables_rule_exists , pattern: {pattern}")
+    log(f"iptables_rule_exists , command: {command}")
+    log(f"iptables_rule_exists , pattern: {pattern}")
     match = re.search(pattern, command)
     if match:
         table = match.group(1)
@@ -16,18 +16,18 @@ def iptables_rule_exists(command, output=False, run_with_sudo=False):
             table = f"-t {table}"
         comment = match.group(2)
         command_rules_list = f"iptables -n -v -L {table}"
-        # log(f"iptables_rule_exists , command_rules_list: {command_rules_list}")
         try:
-            # command = f"{command_rules_list} | grep {comment} ; true"
-            # log(f"Executing command: {command}")
-            # rule = execute_command(command, print_command=False, print_output=False, run_with_sudo=run_with_sudo)
-            command = f"{command_rules_list}"
-            rule = execute_command_with_pipes(command=command_rules_list, command2=f"grep {comment}", print_command=False, print_output=False, run_with_sudo=run_with_sudo)
+            command1 = f"{command_rules_list}"
+            command2 = f"grep {comment}"
+            log(f"Executing command: {command1} | {command2}")
+            rule = execute_command_with_pipes(command=command1, command2=command2, print_command=True, print_output=True, run_with_sudo=run_with_sudo)
             if rule:
                 if output:
                     log(f"Rule exists : '{rule}'")
                 return True
             else:
+                if output:
+                    log(f"Rule doesn't exist : '{rule}'")
                 return False
         except Exception as e:
             log_err(f"Error during operations: {e}")
@@ -35,11 +35,11 @@ def iptables_rule_exists(command, output=False, run_with_sudo=False):
         log_err(f"iptables : regex parsing of command failed : {command}")
 
 def add_iptables_rule(command, run_with_sudo=False):
-    if not iptables_rule_exists(command, output=True, run_with_sudo=run_with_sudo):
+    if not iptables_rule_exists(command, output=False, run_with_sudo=run_with_sudo):
         execute_command(command, run_with_sudo=run_with_sudo)
 
 def delete_iptables_rule(command, run_with_sudo=False):
-    if iptables_rule_exists(command, run_with_sudo=run_with_sudo):
+    if iptables_rule_exists(command, output=True, run_with_sudo=run_with_sudo):
         command = command.replace(' -A ', ' -D ')
         command = command.replace(' -I ', ' -D ')
         execute_command(command, run_with_sudo=run_with_sudo)

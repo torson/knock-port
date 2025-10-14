@@ -13,16 +13,12 @@ RUN echo "install iptables and nftables, curl" && \
 
 RUN adduser --disabled-password ubuntu
 RUN echo "ubuntu ALL=NOPASSWD: /usr/sbin/iptables *" > /etc/sudoers.d/knockport && \
-    echo "ubuntu ALL=NOPASSWD: /usr/sbin/nft *" >> /etc/sudoers.d/knockport && \
-    echo "ubuntu ALL=NOPASSWD: /usr/bin/echo *" >> /etc/sudoers.d/knockport && \
-    echo "ubuntu ALL=NOPASSWD: /usr/bin/grep *" >> /etc/sudoers.d/knockport
+    echo "ubuntu ALL=NOPASSWD: /usr/sbin/nft *" >> /etc/sudoers.d/knockport
 
 # Add knockport user for testing --run-with-sudo feature
 RUN adduser --disabled-password knockport
 RUN echo "knockport ALL=NOPASSWD: /usr/sbin/iptables *" >> /etc/sudoers.d/knockport && \
-    echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" >> /etc/sudoers.d/knockport && \
-    echo "knockport ALL=NOPASSWD: /usr/bin/echo *" >> /etc/sudoers.d/knockport && \
-    echo "knockport ALL=NOPASSWD: /usr/bin/grep *" >> /etc/sudoers.d/knockport
+    echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" >> /etc/sudoers.d/knockport
 
 WORKDIR /app
 COPY requirements.txt .

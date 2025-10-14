@@ -11,10 +11,6 @@ RUN adduser --disabled-password --gecos "" knockport && \
     usermod -a -G vyattacfg knockport && \
     echo "knockport ALL=NOPASSWD: /usr/sbin/iptables *" > /etc/sudoers.d/knockport && \
     echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" >> /etc/sudoers.d/knockport && \
-    echo "knockport ALL=NOPASSWD: /usr/bin/echo *" >> /etc/sudoers.d/knockport && \
-    echo "knockport ALL=NOPASSWD: /usr/bin/grep *" >> /etc/sudoers.d/knockport && \
-    echo "knockport ALL=NOPASSWD: /usr/bin/vbash *" >> /etc/sudoers.d/knockport && \
-    echo "knockport ALL=NOPASSWD: /opt/vyatta/sbin/vyatta-cfg-cmd-wrapper *" >> /etc/sudoers.d/knockport && \
     mkdir -p /home/knockport && \
     chown knockport:users /home/knockport && \
     python3 -m venv /home/knockport/venv && \
