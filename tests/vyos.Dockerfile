@@ -7,6 +7,7 @@ RUN echo 'alias ll="ls -alF"' >> ~/.bashrc && \
     apt-get update && \
     apt-get install -y python3-pip python3-venv sudo
 
+# set up knockport user, create venv (for testing with --run-with-sudo argument)
 RUN adduser --disabled-password --gecos "" knockport && \
     usermod -a -G vyattacfg knockport && \
     echo "knockport ALL=NOPASSWD: /usr/sbin/iptables *" > /etc/sudoers.d/knockport && \
@@ -16,8 +17,15 @@ RUN adduser --disabled-password --gecos "" knockport && \
     python3 -m venv /home/knockport/venv && \
     chown -R knockport:users /home/knockport/venv
 
+# create venv for root user
+# RUN python3 -m venv /root/venv
+
 COPY requirements.txt /app/requirements.txt
 
 RUN echo "installing KnockPort requirements" && \
+    echo "for user knockport" && \
     chown knockport:users /app/requirements.txt && \
-    su - knockport -c "cd /app && ~/venv/bin/pip install --no-cache-dir -r requirements.txt"
+    su - knockport -c "cd /app && ~/venv/bin/pip install --no-cache-dir -r requirements.txt" && \
+    echo "for user root" && \
+    cp -R /home/knockport/venv /root/ && \
+    chown -R root:root /root

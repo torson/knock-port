@@ -11,8 +11,8 @@ def iptables_rule_exists(command, output=False, run_with_sudo=False):
     # Generate a 4-character random string
     random_str = ''.join(random.choices(string.ascii_letters + string.digits, k=4))
     pattern = r'^\S+\s+\S+\s+(\S+)\s+.*comment\s\'([^\']+)\''
-    log(f"[{random_str}] iptables_rule_exists , command: {command}")
-    log(f"[{random_str}] iptables_rule_exists , pattern: {pattern}")
+    # log(f"[{random_str}] iptables_rule_exists , command: {command}")
+    # log(f"[{random_str}] iptables_rule_exists , pattern: {pattern}")
     match = re.search(pattern, command)
     if match:
         table = match.group(1)
@@ -23,8 +23,8 @@ def iptables_rule_exists(command, output=False, run_with_sudo=False):
         try:
             command1 = f"{command_rules_list}"
             command2 = f"grep {comment}"
-            log(f"[{random_str}] iptables_rule_exists , Executing command: {command1} | {command2}")
-            rule = execute_command_with_pipes(command=command1, command2=command2, print_command=True, print_output=True, run_with_sudo=run_with_sudo, id=random_str)
+            # log(f"[{random_str}] iptables_rule_exists , Executing command: {command1} | {command2}")
+            rule = execute_command_with_pipes(command=command1, command2=command2, print_command=False, print_output=False, run_with_sudo=run_with_sudo, id=random_str)
             if rule:
                 if output:
                     log(f"[{random_str}] iptables_rule_exists , Rule exists : '{rule}'")

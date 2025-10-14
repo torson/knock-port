@@ -19,67 +19,76 @@ def execute_command_with_pipes(command, command2, command3=None , print_command=
     # print_command=True
     # print_output=True
     # log(f"print_command: {print_command}, print_output: {print_output}, run_with_sudo: {run_with_sudo}, command: {command}, command2: {command2}")
-    if run_with_sudo:
-        if print_command:
-            log(f"[{id}] execute_command_with_pipes , Executing command: sudo {command}")
-        if command.startswith("echo "):
-            out=str(bash('-c', command)).strip()
-        else:
-            # out=str(bash('-c', f"bash src/wrapper.sh sudo {command}")).strip()
-            # out=str(bash('-c', f"sudo {command}")).strip()
-            # out=str(sudo(command)).strip()
-            if command.startswith("iptables "):
-                command = command.replace('iptables', '/usr/sbin/iptables')
-            if command.startswith("nftables "):
-                command = command.replace('nftables', '/usr/sbin/nftables')
 
+    if print_command:
+        if run_with_sudo:
+            # log(f"[{id}] execute_command_with_pipes , Executing command: sudo {command} | {command2} | {command3}")
+            log(f"Executing command: sudo {command} | {command2} | {command3}")
+        else:
+            # log(f"[{id}] execute_command_with_pipes , Executing command: {command} | {command2} | {command3}")
+            log(f"Executing command: {command} | {command2} | {command3}")
+    if command.startswith("echo "):
+        out=str(bash('-c', command)).strip()
+    else:
+        if command.startswith("iptables "):
+            command = command.replace('iptables', '/usr/sbin/iptables')
+        if command.startswith("nftables "):
+            command = command.replace('nftables', '/usr/sbin/nftables')
+
+        if run_with_sudo:
             # Only the first command needs sudo, grep/wc commands don't need elevated privileges
             command_process = subprocess.Popen(["sudo"] + command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        else:
+            command_process = subprocess.Popen(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        command2_process = subprocess.Popen(command2.split(" "), stdin=command_process.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        command_process.stdout.close()
+        out, errors = command2_process.communicate()
+        out = out.decode()
+        errors = errors.decode()
+        if command3:
+            if run_with_sudo:
+                command_process = subprocess.Popen(["sudo"] + command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            else:
+                command_process = subprocess.Popen(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             command2_process = subprocess.Popen(command2.split(" "), stdin=command_process.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             command_process.stdout.close()
-            out, errors = command2_process.communicate()
+            command3_process = subprocess.Popen(command3.split(" "), stdin=command2_process.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            command2_process.stdout.close()
+            out, errors = command3_process.communicate()
             out = out.decode()
             errors = errors.decode()
-            if command3:
-                command_process = subprocess.Popen(["sudo"] + command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                command2_process = subprocess.Popen(command2.split(" "), stdin=command_process.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                command_process.stdout.close()
-                command3_process = subprocess.Popen(command3.split(" "), stdin=command2_process.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                command2_process.stdout.close()
-                out, errors = command3_process.communicate()
-                out = out.decode()
-                errors = errors.decode()
 
-    else:
-        # TODO: not even implemented :D
-        if print_command:
-            log(f"[{id}] execute_command_with_pipes , Executing command: {command}")
-        out=str(bash('-c', command)).strip()
     if out:
         if print_output:
             log(out)
+    if errors:
+        log(errors)
     return out
 
 def execute_command(command, print_command=True, print_output=True, run_with_sudo=False, id="-"):
     # log(f"print_command: {print_command}, print_output: {print_output}, run_with_sudo: {run_with_sudo}, command: {command}")
-    if run_with_sudo:
-        if print_command:
-            log(f"[{id}] execute_command , Executing command: sudo {command}")
-        if command.startswith("echo "):
-            out=str(bash('-c', command)).strip()
+
+    if print_command:
+        if run_with_sudo:
+            # log(f"[{id}] execute_command , Executing command: sudo {command}")
+            log(f"Executing command: sudo {command}")
         else:
-            if command.startswith("iptables "):
-                command = command.replace('iptables', '/usr/sbin/iptables')
-            if command.startswith("nftables "):
-                command = command.replace('nftables', '/usr/sbin/nftables')
-            command_args = shlex.split(command)
-            out=str(sudo(*command_args, _tty_out=True)).strip()
-            # out=str(bash('-c', f"bash src/wrapper.sh sudo {command}")).strip()
-            # out=str(bash('-c', f"sudo {command}")).strip()
-    else:
-        if print_command:
-            log(f"[{id}] execute_command , Executing command: {command}")
+            # log(f"[{id}] execute_command , Executing command: {command}")
+            log(f"Executing command: {command}")
+
+    if command.startswith("echo "):
         out=str(bash('-c', command)).strip()
+    else:
+        if command.startswith("iptables "):
+            command = command.replace('iptables', '/usr/sbin/iptables')
+        if command.startswith("nftables "):
+            command = command.replace('nftables', '/usr/sbin/nftables')
+        command_args = shlex.split(command)
+        if run_with_sudo:
+            out=str(sudo(*command_args, _tty_out=True)).strip()
+        else:
+            out=str(bash('-c', command)).strip()
+
     if out:
         if print_output:
             log(out)
