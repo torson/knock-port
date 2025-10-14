@@ -32,6 +32,8 @@ def execute_command_with_pipes(command, command2, command3=None , print_command=
                 command = command.replace('iptables', '/usr/sbin/iptables')
             if command.startswith("nftables "):
                 command = command.replace('nftables', '/usr/sbin/nftables')
+
+            # Only the first command needs sudo, grep/wc commands don't need elevated privileges
             command_process = subprocess.Popen(["sudo"] + command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             command2_process = subprocess.Popen(command2.split(" "), stdin=command_process.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             command_process.stdout.close()

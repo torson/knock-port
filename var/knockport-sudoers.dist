@@ -8,10 +8,6 @@ knockport ALL=NOPASSWD: /usr/sbin/iptables *
 # For nftables firewall management
 knockport ALL=NOPASSWD: /usr/sbin/nft *
 
-# For basic system commands used by KnockPort
-knockport ALL=NOPASSWD: /usr/bin/echo *
-knockport ALL=NOPASSWD: /usr/bin/grep *
-
 # For VyOS environments (if using VyOS)
 # knockport ALL=NOPASSWD: /usr/bin/vbash *
 # knockport ALL=NOPASSWD: /opt/vyatta/sbin/vyatta-cfg-cmd-wrapper *
