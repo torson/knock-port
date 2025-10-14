@@ -83,6 +83,15 @@ sudo chmod 440 /etc/sudoers.d/knockport
 sudo visudo -c
 ```
 
+Manual sudoers setup (alternative):
+```bash
+# For iptables
+echo "knockport ALL=NOPASSWD: /usr/sbin/iptables *" | sudo tee /etc/sudoers.d/knockport
+
+# For nftables
+echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" | sudo tee -a /etc/sudoers.d/knockport
+```
+
 ### 3. Run KnockPort with --run-with-sudo:
 ```bash
 # Switch to the knockport user
@@ -92,33 +101,7 @@ sudo su - knockport
 python src/main.py -c config/config.yaml --firewall-type nftables --http-port 8080 --https-port 4431 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --run-with-sudo
 ```
 
-### Manual sudoers setup (alternative):
-```bash
-# For iptables
-echo "knockport ALL=NOPASSWD: /usr/sbin/iptables *" | sudo tee /etc/sudoers.d/knockport
-
-# For nftables
-echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" | sudo tee -a /etc/sudoers.d/knockport
-
-# For basic commands
-echo "knockport ALL=NOPASSWD: /usr/bin/echo *" | sudo tee -a /etc/sudoers.d/knockport
-echo "knockport ALL=NOPASSWD: /usr/bin/grep *" | sudo tee -a /etc/sudoers.d/knockport
-```
-
-## Running as Root User (Legacy)
-
-KnockPort can also be run directly as root (less secure):
-```bash
-sudo python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
-```
-
-Using with nohup:
-```
-nohup sudo python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key >> knock-port-server.log &
-```
-
-
-Using with systemd:
+### Using with systemd:
 ```
 cp var/knock-port.service.dist var/knock-port.service
 # Update the app arguments inside knock-port.service
