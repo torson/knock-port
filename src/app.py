@@ -69,7 +69,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
         if access_key_type == "http":
             # For HTTP requests, verify 2FA token
             # Check if 2FA is configured for this access key
-            tfa_config_file = Path(f"config/2fa/{access_key}.json")
+            tfa_config_file = Path(f"{config['global']['2fa_config_folder']}/{access_key}.json")
             if tfa_config_file.exists():
                 if form.token:
                     token = form.token.data

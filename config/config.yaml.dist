@@ -5,6 +5,7 @@ global:
   step1_2_rate_limit_per_minute: 5
   interface_ext: eth0
   interface_int: eth0  # used in case of non-local service
+  2fa_config_folder: config/2fa
 
 openvpn:
   port: 1194
