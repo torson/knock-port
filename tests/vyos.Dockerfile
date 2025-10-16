@@ -13,9 +13,12 @@ RUN adduser --disabled-password --gecos "" knockport && \
     echo "knockport ALL=NOPASSWD: /usr/sbin/iptables *" > /etc/sudoers.d/knockport && \
     echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" >> /etc/sudoers.d/knockport && \
     mkdir -p /home/knockport && \
+    echo "alias ll='ls -alF'" >> /home/knockport/.bashrc && \
     chown knockport:users /home/knockport && \
     python3 -m venv /home/knockport/venv && \
     chown -R knockport:users /home/knockport/venv
+
+RUN echo "alias ll='ls -alF'" >> /root/.bashrc
 
 # create venv for root user
 # RUN python3 -m venv /root/venv

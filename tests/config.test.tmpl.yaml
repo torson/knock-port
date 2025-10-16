@@ -5,6 +5,8 @@ global:
   step1_2_rate_limit_per_minute: 120
   interface_ext: eth0
   interface_int: eth0  # used in case of non-local service
+  2fa_config_folder: config/2fa
+  healthcheck_app_name: healthcheck # app name for healthcheck
 
 test_service_local:
   port: 1194

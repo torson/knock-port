@@ -52,9 +52,7 @@ class RequestForm(FlaskForm):
 
 def handle_request(config, sessions, lock, session_file, access_key_type, args):
     client_ip = request.remote_addr
-    log(f"Received request from {client_ip}")
     form = RequestForm(request.form)
-    log(f"Received data: {dict(request.form)}")
     if not form.validate():
         for fieldName, errorMessages in form.errors.items():
             for err in errorMessages:
@@ -63,7 +61,13 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
 
     app_name = form.app.data
     access_key = form.access_key.data
-    log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
+
+    if app_name == config['global']['healthcheck_app_name']:
+        # not logging healthcheck requests
+        return '', 200
+
+    log(f"Received {request.method} request from {client_ip} , data: {dict(request.form)}")
+    # log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
 
     if app_name in config and app_name != "global" and access_key in config[app_name][f'access_key_{access_key_type}']:
         if access_key_type == "http":
@@ -156,7 +160,6 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
             for command in commands:
                 add_nftables_rule(command, run_with_sudo=args.run_with_sudo)
 
-
         for command in commands:
             session_exists = False
             expires_at = time.time() + duration
@@ -175,7 +178,8 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     os.fsync(f.fileno())
     else:
         log_err(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
-    abort(503)
+        abort(503)
+    return '', 200
 
 def create_app(config_path, session_file, args):
     config = load_config(config_path)
@@ -204,7 +208,7 @@ def create_app(config_path, session_file, args):
     # rate limit for this specific route
     @limiter.limit(f"{config['global']['step1_2_rate_limit_per_minute']} per minute")
     def handle_http_request():
-        log(f"Received HTTP {request.method} request from {request.remote_addr}")
+        # log(f"Received HTTP {request.method} request from {request.remote_addr}")
         if request.method == 'POST':
             return handle_request(config, sessions, lock, session_file, 'http', args)
 
@@ -212,7 +216,7 @@ def create_app(config_path, session_file, args):
     # rate limit for this specific route
     @limiter.limit(f"{config['global']['step1_2_rate_limit_per_minute']} per minute")
     def handle_https_request():
-        log(f"Received HTTPS {request.method} request from {request.remote_addr}")
+        # log(f"Received HTTPS {request.method} request from {request.remote_addr}")
         if request.method == 'POST':
             return handle_request(config, sessions, lock, session_file, 'https', args)
 

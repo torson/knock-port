@@ -18,7 +18,10 @@ RUN echo "ubuntu ALL=NOPASSWD: /usr/sbin/iptables *" > /etc/sudoers.d/knockport 
 # Add knockport user for testing --run-with-sudo feature
 RUN adduser --disabled-password knockport
 RUN echo "knockport ALL=NOPASSWD: /usr/sbin/iptables *" >> /etc/sudoers.d/knockport && \
-    echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" >> /etc/sudoers.d/knockport
+    echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" >> /etc/sudoers.d/knockport && \
+    echo "alias ll='ls -alF'" >> /home/knockport/.bashrc
+
+RUN echo "alias ll='ls -alF'" >> /root/.bashrc
 
 WORKDIR /app
 COPY requirements.txt .

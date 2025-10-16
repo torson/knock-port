@@ -25,25 +25,31 @@ def iptables_rule_exists(command, output=False, run_with_sudo=False):
             command2 = f"grep {comment}"
             # log(f"[{random_str}] iptables_rule_exists , Executing command: {command1} | {command2}")
             rule = execute_command_with_pipes(command=command1, command2=command2, print_command=False, print_output=False, run_with_sudo=run_with_sudo, id=random_str)
+            if rule is not None:
+                rule = rule.rstrip('\n')
             if rule:
                 if output:
-                    log(f"[{random_str}] iptables_rule_exists , Rule exists : '{rule}'")
+                    # log(f"[{random_str}] iptables_rule_exists , Rule exists : '{rule}'")
+                    log(f"Rule exists : '{rule}'")
                 return True
             else:
                 if output:
-                    log(f"[{random_str}] iptables_rule_exists , Rule doesn't exist : '{rule}'")
+                    # log(f"[{random_str}] iptables_rule_exists , Rule doesn't exist : '{rule}'")
+                    log(f"Rule doesn't exist : '{rule}'")
                 return False
         except Exception as e:
-            log_err(f"[{random_str}] iptables_rule_exists , Error during operations: {e}")
+            # log_err(f"[{random_str}] iptables_rule_exists , Error during operations: {e}")
+            log_err(f"Error during operations: {e}")
     else:
-        log_err(f"[{random_str}] iptables_rule_exists , iptables : regex parsing of command failed : {command}")
+        # log_err(f"[{random_str}] iptables_rule_exists , iptables : regex parsing of command failed : {command}")
+        log_err(f"iptables : regex parsing of command failed : {command}")
 
 def add_iptables_rule(command, run_with_sudo=False):
     if not iptables_rule_exists(command, output=False, run_with_sudo=run_with_sudo):
         execute_command(command, run_with_sudo=run_with_sudo)
 
 def delete_iptables_rule(command, run_with_sudo=False):
-    if iptables_rule_exists(command, output=True, run_with_sudo=run_with_sudo):
+    if iptables_rule_exists(command, output=False, run_with_sudo=run_with_sudo):
         command = command.replace(' -A ', ' -D ')
         command = command.replace(' -I ', ' -D ')
         execute_command(command, run_with_sudo=run_with_sudo)
@@ -63,6 +69,8 @@ def nftables_rule_exists(command, output=False, pattern=r'^\S+\s+\S+\s+\S+\s+\S+
             command3 = "grep handle"
             try:
                 rule = execute_command_with_pipes(command=command1, command2=command2, command3=command3, print_command=False, print_output=False, run_with_sudo=run_with_sudo)
+                if rule is not None:
+                    rule = rule.rstrip('\n')
             except Exception:
                 # If grep doesn't find anything, it will return non-zero exit code, which is expected
                 # This is equivalent to the "; true" that was in the original command

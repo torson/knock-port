@@ -55,7 +55,7 @@ class TestServer(unittest.TestCase):
                                  data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
                                  verify=False,  # Disable SSL verification for testing
                                  timeout=5)
-        self.assertEqual(response.status_code, 503)  # Expecting 503 as per the server logic
+        self.assertEqual(response.status_code, 200)  # Expecting 200 as per the server logic
 
         # Check the cache/sessions.json file inside the container
         max_retries = 10
@@ -99,7 +99,7 @@ class TestServer(unittest.TestCase):
                                  data={'app': 'test_service_nonlocal', 'access_key': 'test_secret_https'},
                                  verify=False,  # Disable SSL verification for testing
                                  timeout=5)
-        self.assertEqual(response.status_code, 503)  # Expecting 503 as per the server logic
+        self.assertEqual(response.status_code, 200)  # Expecting 200 as per the server logic
 
         # Check the cache/sessions.json file inside the container
         max_retries = 10

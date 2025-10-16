@@ -1,47 +1,50 @@
 #!/bin/bash
 
-# Sending request and checking if log file timestamp is older than TTL.
-# In such case it's considered that the service got stuck so we restart it
-
-LOGFILE_PATH=/var/log/knock-port.log
-TTL=10
+KNOCKPORT_HOST=127.0.0.1
+KNOCKPORT_HTTP_PORT=8080
+KNOCKPORT_HTTP_URL_PATH=/step-1
+KNOCKPORT_HTTPS_PORT=8443
 
 log() {
     echo -e "--> $(date) : $1"
 }
 
+# Sending request and checking if knock-port log file got updated - if timestamp is older than TTL then it has not updated.
+# In such case it's considered that the service got stuck so we restart it
+
+TTL=10
+
 echo
 log "Sending HTTP request"
-curl -s -m 1 -d 'app=openvpn&access_key=test-ping-key' http://127.0.0.1/step-1
-log "sleep 5"
-sleep 5
-
-FILE_TIMESTAMP=$(stat -c %Y ${LOGFILE_PATH})
-CURRENT_UNIXTIME=$(date +%s)
-DIFF=$((CURRENT_UNIXTIME-FILE_TIMESTAMP))
-if [[ "${DIFF}" -gt "${TTL}" ]]; then
-    log "File ${LOGFILE_PATH} is older than ${TTL} : ${DIFF} s"
+if curl -s -m 1 -i -d 'app=healthcheck&access_key=1234567890' http://${KNOCKPORT_HOST}:${KNOCKPORT_HTTP_PORT}${KNOCKPORT_HTTP_URL_PATH} | grep "200 OK" >/dev/null ; then
+    log "OK. KnockPort responded with 200"
+else
+    log "Error. KnockPort did not responded with 200, restarting KnockPort"
     log "/usr/sbin/service knock-port restart"
     /usr/sbin/service knock-port restart
-else
-    log "OK. File ${LOGFILE_PATH} is less than ${TTL}s old : ${DIFF}s"
 fi
 
 # Checking if there are ESTABLISHED connections to
-# either port 80 or 443 for some unknown reason
+# either HTTP or HTTPS port for some unknown reason
 # In such case we restart KnockPort as it means there's
 # some undesired behaviour, might be some rouge connection
 MATCH=0
 for COUNT in {1,2,3,4} ; do
     if [ "$MATCH" = "3" ]; then
-        log "There's established connection to the HTTP/HTTPS port within 2 seconds which is unusual"
+        log "There's established connection to the HTTP/HTTPS port within 3 seconds which is unusual"
         log "/usr/sbin/service knock-port restart"
         /usr/sbin/service knock-port restart
         break
     fi
-    log "netstat -nap | grep -P ':80 |:443 ' | grep ESTA"
-    if netstat -nap | grep -P ':80 |:443 ' | grep ESTA ; then
+    # log "ss -Htan state established \"( dport = :${KNOCKPORT_HTTP_PORT} or dport = :${KNOCKPORT_HTTPS_PORT} )\" | grep -q ."
+    if ss -Htan state established "( dport = :${KNOCKPORT_HTTP_PORT} or dport = :${KNOCKPORT_HTTPS_PORT} )"  | grep -q . >/dev/null; then
+        # at least 1 established connection
         MATCH=$((MATCH+1))
     fi
+
     sleep 1
 done
+
+if [ "${MATCH}" = "0" ]; then
+    log "OK. No persisting connections on ports ${KNOCKPORT_HTTP_PORT} or ${KNOCKPORT_HTTPS_PORT}"
+fi
