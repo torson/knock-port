@@ -26,8 +26,8 @@ Group=knockport
 WorkingDirectory=/home/knockport/knock-port
 # python -m venv ~/python-knockport
 ExecStartPre=/home/knockport/python-knockport/bin/pip install -r requirements.txt
-# Non-root user with --run-with-sudo (recommended)
-ExecStart=/home/knockport/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --run-with-sudo
+# Non-root user with --use-sudo (recommended)
+ExecStart=/home/knockport/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo
 Environment="PATH=/home/knockport/python-knockport/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 # Configuration for root user (alternative)

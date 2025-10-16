@@ -24,9 +24,9 @@ def manage_sessions(session_file, sessions, lock, firewall_type, args):
                     f.flush()
                     os.fsync(f.fileno())
                 if firewall_type == 'iptables':
-                    delete_iptables_rule(command, run_with_sudo=args.run_with_sudo)
+                    delete_iptables_rule(command, use_sudo=args.use_sudo)
                 elif firewall_type == 'nftables' or firewall_type == 'vyos':
-                    delete_nftables_rule(session['command'], run_with_sudo=args.run_with_sudo)
+                    delete_nftables_rule(session['command'], use_sudo=args.use_sudo)
         time.sleep(1)
 
 def monitor_stealthy_ports(config, stop_event, session_file, args, app):
@@ -46,7 +46,7 @@ def monitor_stealthy_ports(config, stop_event, session_file, args, app):
             command2 = f"grep ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-drop"
 
         try:
-            out = execute_command_with_pipes(command=command1, command2=command2, print_command=False, print_output=False, run_with_sudo=args.run_with_sudo)
+            out = execute_command_with_pipes(command=command1, command2=command2, print_command=False, print_output=False, use_sudo=args.use_sudo)
         except Exception:
             # If grep doesn't find anything, it will return non-zero exit code, which is expected
             # This is equivalent to the "; true" that was in the original command
@@ -64,9 +64,9 @@ def monitor_stealthy_ports(config, stop_event, session_file, args, app):
                     for session in sessions:
                         command = session['command']
                         if args.firewall_type == 'iptables':
-                            add_iptables_rule(command, run_with_sudo=args.run_with_sudo)
+                            add_iptables_rule(command, use_sudo=args.use_sudo)
                         elif args.firewall_type == 'nftables' or args.firewall_type == 'vyos':
-                            add_nftables_rule(command, run_with_sudo=args.run_with_sudo)
+                            add_nftables_rule(command, use_sudo=args.use_sudo)
             except FileNotFoundError:
                 log("No existing session file found. Skipping session rules reapplication.")
         time.sleep(5)

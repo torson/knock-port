@@ -8,7 +8,7 @@ You can continue having that old application/service you love to use faced to pu
 
 Of course if there's a rouge actor on your network (public WiFi ;) ), then Knock-Port is of no benefit in protecting your service(s) since the actor has the same access as you - the same public IP.
 
-Knock-Port needs permission to modify kernel-level firewall settings. It can be run as root user, or as a regular user with sudo permissions using the `--run-with-sudo` flag.
+Knock-Port needs permission to modify kernel-level firewall settings. It can be run as root user, or as a regular user with sudo permissions using the `--use-sudo` flag.
 
 It supports iptables, nftables and VyOS specific nftables.
 
@@ -49,7 +49,7 @@ GENERATE_CERTIFICATE_ONLY=true tests/run_docker_tests.sh
 sudo python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
 
 # using nftables, non-root user (recommended)
-python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --run-with-sudo
+python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo
 
 # Sample curl commands to authenticate and test the server with the sample configuration
 # > they should be run one after the other (depending what step2_https_duration is set to)
@@ -92,21 +92,21 @@ echo "knockport ALL=NOPASSWD: /usr/sbin/iptables *" | sudo tee /etc/sudoers.d/kn
 echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" | sudo tee -a /etc/sudoers.d/knockport
 ```
 
-### 3. Run KnockPort with --run-with-sudo:
+### 3. Run KnockPort with --use-sudo:
 ```bash
 # Switch to the knockport user
 sudo su - knockport
 
 # Run KnockPort (example with nftables)
-python src/main.py -c config/config.yaml --firewall-type nftables --http-port 8080 --https-port 4431 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --run-with-sudo
+python src/main.py -c config/config.yaml --firewall-type nftables --http-port 8080 --https-port 4431 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo
 ```
 
 ## Using with systemd:
 ```
 cp var/knock-port.service.dist var/knock-port.service
 # Update the app arguments inside knock-port.service
-# For non-root user: add --run-with-sudo flag and set User=knockport
-# For root user: remove --run-with-sudo flag and set User=root
+# For non-root user: add --use-sudo flag and set User=knockport
+# For root user: remove --use-sudo flag and set User=root
 cp var/knock-port.service /etc/systemd/system/knock-port.service
 systemctl daemon-reload
 systemctl enable knock-port.service

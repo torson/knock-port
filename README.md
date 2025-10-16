@@ -6,7 +6,7 @@ A lightweight, on-demand port-knocking gateway. Knock-Port briefly opens service
 - Per-IP access with time-limited windows
 - Local services or LAN hosts (port forwarding)
 - Works with iptables, nftables, and VyOS nftables
-- Run it as root or non-root with `--run-with-sudo`
+- Run it as root or non-root with `--use-sudo`
 - Optional 2FA for added protection
 - systemd templates and Docker-based tests included
 
@@ -47,7 +47,7 @@ GENERATE_CERTIFICATE_ONLY=true tests/run_docker_tests.sh
 sudo python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
 
 # using nftables, non-root user (recommended)
-python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --run-with-sudo
+python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo
 
 # Sample curl commands to authenticate and test the server with the sample configuration
 # > they should be run one after the other (depending what step2_https_duration is set to)
@@ -69,7 +69,7 @@ curl -d 'app=app1&access_key=secret456_https' -k https://knock-port.example.com/
 - Use `--firewall-type iptables` only on systems that still default to iptables; modern distros translate iptables to nftables.
 
 ## Operating Tips
-- Non-root: run with `--run-with-sudo` and configure `/etc/sudoers.d/` (see `var/knockport-sudoers.dist`).
+- Non-root: run with `--use-sudo` and configure `/etc/sudoers.d/` (see `var/knockport-sudoers.dist`).
 - systemd: use `var/knock-port.service.dist` (and `knock-port.timer` on VyOS to delay startup until nftables is ready).
 - Tests: run `tests/run_docker_tests.sh`. For VyOS, set `VYOS_ROLLING_VERSION` in `tests/.env`.
 

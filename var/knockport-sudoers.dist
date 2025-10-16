@@ -12,4 +12,4 @@ knockport ALL=NOPASSWD: /usr/sbin/nft *
 # 1. Copy this file: sudo cp var/knockport-sudoers.dist /etc/sudoers.d/knockport
 # 2. Set proper permissions: sudo chmod 440 /etc/sudoers.d/knockport
 # 3. Verify configuration: sudo visudo -c
-# 4. Run KnockPort with: python src/main.py ... --run-with-sudo
+# 4. Run KnockPort with: python src/main.py ... --use-sudo

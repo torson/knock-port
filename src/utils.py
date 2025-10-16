@@ -15,13 +15,13 @@ def log_err(text):
     message = "%s: %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), text)
     print(message, end='', file=sys.stderr, flush=True)
 
-def execute_command_with_pipes(command, command2, command3=None , print_command=True, print_output=True, run_with_sudo=False, id="-"):
+def execute_command_with_pipes(command, command2, command3=None , print_command=True, print_output=True, use_sudo=False, id="-"):
     # print_command=True
     # print_output=True
-    # log(f"print_command: {print_command}, print_output: {print_output}, run_with_sudo: {run_with_sudo}, command: {command}, command2: {command2}")
+    # log(f"print_command: {print_command}, print_output: {print_output}, use_sudo: {use_sudo}, command: {command}, command2: {command2}")
 
     if print_command:
-        if run_with_sudo:
+        if use_sudo:
             # log(f"[{id}] execute_command_with_pipes , Executing command: sudo {command} | {command2} | {command3}")
             log(f"Executing command: sudo {command} | {command2} | {command3}")
         else:
@@ -35,7 +35,7 @@ def execute_command_with_pipes(command, command2, command3=None , print_command=
         if command.startswith("nftables "):
             command = command.replace('nftables', '/usr/sbin/nftables')
 
-        if run_with_sudo:
+        if use_sudo:
             # Only the first command needs sudo, grep/wc commands don't need elevated privileges
             command_process = subprocess.Popen(["sudo"] + command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         else:
@@ -46,7 +46,7 @@ def execute_command_with_pipes(command, command2, command3=None , print_command=
         out = out.decode()
         errors = errors.decode()
         if command3:
-            if run_with_sudo:
+            if use_sudo:
                 command_process = subprocess.Popen(["sudo"] + command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             else:
                 command_process = subprocess.Popen(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -65,11 +65,11 @@ def execute_command_with_pipes(command, command2, command3=None , print_command=
         log(errors)
     return out
 
-def execute_command(command, print_command=True, print_output=True, run_with_sudo=False, id="-"):
-    # log(f"print_command: {print_command}, print_output: {print_output}, run_with_sudo: {run_with_sudo}, command: {command}")
+def execute_command(command, print_command=True, print_output=True, use_sudo=False, id="-"):
+    # log(f"print_command: {print_command}, print_output: {print_output}, use_sudo: {use_sudo}, command: {command}")
 
     if print_command:
-        if run_with_sudo:
+        if use_sudo:
             # log(f"[{id}] execute_command , Executing command: sudo {command}")
             log(f"Executing command: sudo {command}")
         else:
@@ -84,7 +84,7 @@ def execute_command(command, print_command=True, print_output=True, run_with_sud
         if command.startswith("nftables "):
             command = command.replace('nftables', '/usr/sbin/nftables')
         command_args = shlex.split(command)
-        if run_with_sudo:
+        if use_sudo:
             out=str(sudo(*command_args, _tty_out=True)).strip()
         else:
             out=str(bash('-c', command)).strip()

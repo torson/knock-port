@@ -7,7 +7,7 @@ RUN echo 'alias ll="ls -alF"' >> ~/.bashrc && \
     apt-get update && \
     apt-get install -y python3-pip python3-venv sudo
 
-# set up knockport user, create venv (for testing with --run-with-sudo argument)
+# set up knockport user, create venv (for testing with --use-sudo argument)
 RUN adduser --disabled-password --gecos "" knockport && \
     usermod -a -G vyattacfg knockport && \
     echo "knockport ALL=NOPASSWD: /usr/sbin/iptables *" > /etc/sudoers.d/knockport && \
