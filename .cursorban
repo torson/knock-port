@@ -7,8 +7,8 @@
 # cache
 config/*.yaml
 # config/2fa
-var/knock-port.service
-var/knock-port-freeze-restart.sh
+var/knockport.service
+var/knockport-freeze-restart.sh
 *.iso
 tests/config.test.yaml
 .env

@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# This script was created at the start of development when KnockPort would occasionally freeze
+# There's no more freezes but the script is still here.
+
+## to set this up on VyOS
+# set system task-scheduler task knock_port_freeze_restart executable path '/home/knockport/knock-port/var/knockport-freeze-restart.run.sh'
+# set system task-scheduler task knock_port_freeze_restart interval '5m'
+
+
 KNOCKPORT_HOST=127.0.0.1
 KNOCKPORT_HTTP_PORT=8080
 KNOCKPORT_HTTP_URL_PATH=/step-1
