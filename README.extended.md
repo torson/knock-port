@@ -163,15 +163,17 @@ Note: After the addition of firewall level filtering of HTTP URL path (which was
 
 ## 2FA
 
-You can enable 2FA to prevent abuse in case your machine gets compromised. Use Authenticator on your phone instead of one on the machine itself (like 1Password that also supports 2FA tokens), that .
+You can enable 2FA to prevent abuse in case your machine gets compromised. Might be better to use an authenticator app on your phone instead of one on the machine itself (like 1Password that also supports 2FA tokens).
 
-To set up 2FA run this command and pass it any access_key_http (configured in config.yaml) value for which you want to enable 2FA, and follow instructions:
+To set up 2FA run this command and pass it any access_key_http value that's configured in `config.yaml` for which you want to enable 2FA, and follow instructions:
 ```
 python src/setup_2fa.py -h
 python src/setup_2fa.py -k {access_key_http}
 ```
 
-From this point onwards you need to provide additional header `token` in the curl command :
+Two files were created inside folder `config/2fa/` : `<access_key>_qr.png` and `<access_key>.json` .
+
+From this point onward you need to provide additional header `token` in the curl command when authenticating with this specific access_key :
 ```
 #!/bin/bash
 read -p "2FA token: " TOKEN
@@ -179,9 +181,11 @@ curl -d "app=app1&access_key=secret123_http&token=${TOKEN}" -m 1 http://knockpor
 curl -d "app=app1&access_key=secret456_https" -k https://knockport.example.com/2-{SECRET}
 ```
 
-A valid token can be used only once to prevent an attacker (sniffing the network) repeating the same request from another IP, so in case you fail to send the HTTPS request within the configured `step2_https_duration` value (if it's set to a low value), then you need to wait for the next token to generate.
+A valid token can be used only once to prevent an attacker sniffing the network to repeat the same request from another IP, so in case you fail to send the 2nd step HTTPS request within the configured `step2_https_duration` value (if it's set to a low value), then you need to wait for the next 2FA token to be generated and pass that new token.
 
-In addition of securing the services ports, enabling 2FA also shields KnockPort itself from attacks on HTTPS port because the token is passed with the 1st step HTTP request (there's nothing wrong with sending tokens via HTTP as the 2FA key can't get reverse-engineered with sampling of tokens), so the 2nd step HTTPS port doesn't even get open for attacks.
+To disable 2FA for a particular access_key , just rename/move/delete file `config/2fa/<access_key>.json` .
+
+In addition of securing the services ports, enabling 2FA also shields KnockPort from attacks on HTTPS port because the token is passed with the 1st step HTTP request (there's nothing wrong with sending tokens via HTTP as the 2FA key can't get reverse-engineered with sampling of tokens), so the 2nd step HTTPS port doesn't even get open for attacks.
 
 
 ## TODO

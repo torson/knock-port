@@ -142,12 +142,15 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
     sleep 3
 
     # curl -m 1 -d 'app=test_service_local&access_key=test_secret_http' http://localhost:8080/step-1
+    # # with 2FA token
+    # curl -m 1 -d 'app=test_service_local&access_key=test_secret_http&token=' http://localhost:8080/step-1
     # curl -m 1 -d 'app=test_service_local&access_key=test_secret_https' https://localhost:8443/step-2 -k
     # curl -m 1 http://localhost:1194/
 
     # curl -m 1 -d 'app=test_service_nonlocal&access_key=test_secret_http' http://localhost:8080/step-1
     # curl -m 1 -d 'app=test_service_nonlocal&access_key=test_secret_https' https://localhost:8443/step-2 -k
     # curl -m 1 http://localhost:1294/
+
 
     # Run the tests , needs to be run from repo root
     run_command python tests/tests.py
