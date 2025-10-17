@@ -1,12 +1,12 @@
 # Knock-Port
 
-A lightweight, on-demand port-knocking gateway. Knock-Port briefly opens service ports only for the IP that proves knowledge of a shared secret via a two-step HTTP → HTTPS flow, then closes them automatically after a specified period. Use it to safely expose legacy or internal services without leaving ports publicly reachable.
+A lightweight, on-demand port-knocking gateway. Knock-Port opens service ports only for the IP that proves knowledge of a shared secret via a two-step HTTP → HTTPS flow, then closes them automatically after a configured period. Use it to safely expose legacy or internal services without leaving ports publicly reachable.
 
-- Two-step open: stealth HTTP path, then HTTPS confirmation
+- Two-step open: stealth HTTP + HTTPS authentication
 - Per-IP access with time-limited windows
 - Local services or LAN hosts (port forwarding)
 - Works with iptables, nftables, and VyOS nftables
-- Run it as root or non-root with `--use-sudo`
+- Run it as root or as non-root with `--use-sudo`
 - Optional 2FA for added protection
 - systemd templates and Docker-based tests included
 
@@ -59,14 +59,14 @@ curl -d 'app=app1&access_key=secret456_https' -k https://knock-port.example.com/
 
 
 ## How It Works
-- Step 1 (HTTP): client posts to a secret path. Firewall rules keep the HTTP endpoint stealthy and path-filtered.
+- Step 1 (HTTP): client posts to a secret path. Firewall rules keep the HTTP endpoint stealthy (client doesn't receive the response) and path-filtered .
 - Step 2 (HTTPS): upon a valid step 1, HTTPS opens briefly for the requester IP to submit the second secret. On success, the target service port opens for a configured duration for that IP.
 
 ## Security Notes
 - HTTPS cannot be fully stealth due to TLS handshakes; keep the step-2 open window short.
-- Consider placing a hardened reverse proxy (Nginx) in front if desired.
-- 2FA is supported and recommended for compromised-client scenarios.
-- Use `--firewall-type iptables` only on systems that still default to iptables; modern distros translate iptables to nftables.
+- Consider placing a hardened reverse proxy / WAF (Nginx for example) in front if desired (set `--waf-http-port`, `--waf-https-port`).
+- 2FA is supported and recommended for compromised-client computer scenarios.
+- Use `--firewall-type iptables` on systems that still default to iptables; modern distros translate iptables to nftables.
 
 ## Operating Tips
 - Non-root: run with `--use-sudo` and configure `/etc/sudoers.d/` (see `var/knockport-sudoers.dist`).

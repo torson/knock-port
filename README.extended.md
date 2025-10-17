@@ -163,7 +163,7 @@ Note: After the addition of firewall level filtering of HTTP URL path (which was
 
 ## 2FA
 
-You can enable 2FA to prevent abuse in case your machine gets compromised. Use Authenticator on your phone instead of one on the machine itself - like 1Password which also supports 2FA tokens.
+You can enable 2FA to prevent abuse in case your machine gets compromised. Use Authenticator on your phone instead of one on the machine itself (like 1Password that also supports 2FA tokens), that .
 
 To set up 2FA run this command and pass it any access_key_http (configured in config.yaml) value for which you want to enable 2FA, and follow instructions:
 ```
@@ -175,8 +175,8 @@ From this point onwards you need to provide additional header `token` in the cur
 ```
 #!/bin/bash
 read -p "2FA token: " TOKEN
-curl -d 'app=app1&access_key=secret123_http&token=${TOKEN}' -m 1 http://knock-port.example.com/1-{SECRET}
-curl -d 'app=app1&access_key=secret456_https' -k https://knock-port.example.com/2-{SECRET}
+curl -d "app=app1&access_key=secret123_http&token=${TOKEN}" -m 1 http://knock-port.example.com/1-{SECRET}
+curl -d "app=app1&access_key=secret456_https" -k https://knock-port.example.com/2-{SECRET}
 ```
 
 A valid token can be used only once to prevent an attacker (sniffing the network) repeating the same request from another IP, so in case you fail to send the HTTPS request within the configured `step2_https_duration` value (if it's set to a low value), then you need to wait for the next token to generate.
@@ -185,6 +185,7 @@ In addition of securing the services ports, enabling 2FA also shields Knock-Port
 
 
 ## TODO
+- option to define cli commands in config.yaml to run for opening and closing a service port per app, so KnockPort can manage cloud firewall like AWS Security Group. Management requests could come in via ALB (--waf-* arguments) and KnockPort would then manage one AWS SecurityGroup per app
 - OTP token (separate from 2FA) added to HTTP request so network sniffing becomes unuseful, the attacker needs to break into the client computer. The token needs to be generated on the client side so it must have the token generation set up in addition to just using curl
 
 
