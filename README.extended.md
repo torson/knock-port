@@ -6,9 +6,9 @@ A port-knocking server with a HTTP+HTTPS request procedure to open service port(
 
 You can continue having that old application/service you love to use faced to public internet even though it might have security holes (most probably it's littered with them). Or use it for any latest service you're using since it most probably also has security holes. With KnockPort you open such application/service port only for the IP you're doing the request procedure from.
 
-Of course if there's a rouge actor on your network (public WiFi ;) ), then KnockPort is of no benefit in protecting your service(s) since the actor has the same access as you - the same public IP.
+Of course if there's a rouge actor on your LAN network (public WiFi ;) ), then KnockPort is of no benefit in protecting your service(s) since the actor has the same access as you - the same public IP.
 
-KnockPort needs permission to modify kernel-level firewall settings. It can be run as root user, or as a regular user with sudo permissions using the `--use-sudo` flag.
+KnockPort needs permission to modify kernel-level firewall settings. So either run it under root user, or as a regular user with specific sudo permissions that allow execution of iptables/nft command (see `var/knockport-sudoers.dist`) and adding argument `--use-sudo`.
 
 It supports iptables, nftables and VyOS specific nftables.
 
@@ -181,7 +181,7 @@ curl -d "app=app1&access_key=secret123_http&token=${TOKEN}" -m 1 http://knockpor
 curl -d "app=app1&access_key=secret456_https" -k https://knockport.example.com/2-{SECRET}
 ```
 
-A valid token can be used only once to prevent an attacker sniffing the network to repeat the same request from another IP, so in case you fail to send the 2nd step HTTPS request within the configured `step2_https_duration` value (if it's set to a low value), then you need to wait for the next 2FA token to be generated and pass that new token.
+A valid token can be used only once to prevent a replay attack - an attacker sniffing the network to repeat the same request from another IP, so in case you fail to send the 2nd step HTTPS request within the configured `step2_https_duration` value (if it's set to a low value), then you need to wait for the next 2FA token to be generated and pass that new token. That could generally happen only while testing as normally both requests are done by a script one after the other.
 
 To disable 2FA for a particular access_key , just rename/move/delete file `config/2fa/<access_key>.json` .
 
