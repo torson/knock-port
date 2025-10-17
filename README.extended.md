@@ -1,14 +1,14 @@
-# Knock-Port
+# KnockPort
 
 > Check a comprehensive wiki at https://deepwiki.com/torson/knock-port
 
 A port-knocking server with a HTTP+HTTPS request procedure to open service port(s) - either running locally or on an internal LAN host (forwarding the traffic).
 
-You can continue having that old application/service you love to use faced to public internet even though it might have security holes (most probably it's littered with them). Or use it for any latest service you're using since it most probably also has security holes. With Knock-Port you open such application/service port only for the IP you're doing the request procedure from.
+You can continue having that old application/service you love to use faced to public internet even though it might have security holes (most probably it's littered with them). Or use it for any latest service you're using since it most probably also has security holes. With KnockPort you open such application/service port only for the IP you're doing the request procedure from.
 
-Of course if there's a rouge actor on your network (public WiFi ;) ), then Knock-Port is of no benefit in protecting your service(s) since the actor has the same access as you - the same public IP.
+Of course if there's a rouge actor on your network (public WiFi ;) ), then KnockPort is of no benefit in protecting your service(s) since the actor has the same access as you - the same public IP.
 
-Knock-Port needs permission to modify kernel-level firewall settings. It can be run as root user, or as a regular user with sudo permissions using the `--use-sudo` flag.
+KnockPort needs permission to modify kernel-level firewall settings. It can be run as root user, or as a regular user with sudo permissions using the `--use-sudo` flag.
 
 It supports iptables, nftables and VyOS specific nftables.
 
@@ -42,19 +42,19 @@ pip install -r requirements.txt
 python src/main.py -h
 
 # for generating self-signed certificate run this
-# > 2 files get created: tests/knock-port.testing.key , tests/knock-port.testing.pem
+# > 2 files get created: tests/knockport.testing.key , tests/knockport.testing.pem
 GENERATE_CERTIFICATE_ONLY=true tests/run_docker_tests.sh
 
 # using nftables, root user
-sudo python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
+sudo python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knockport.testing.pem --key tests/knockport.testing.key
 
 # using nftables, non-root user (recommended)
-python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo
+python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knockport.testing.pem --key tests/knockport.testing.key --use-sudo
 
 # Sample curl commands to authenticate and test the server with the sample configuration
 # > they should be run one after the other (depending what step2_https_duration is set to)
-curl -d 'app=app1&access_key=secret123_http' -m 1 http://knock-port.example.com/{SECRET_1}
-curl -d 'app=app1&access_key=secret456_https' -k https://knock-port.example.com/{SECRET_2}
+curl -d 'app=app1&access_key=secret123_http' -m 1 http://knockport.example.com/{SECRET_1}
+curl -d 'app=app1&access_key=secret456_https' -k https://knockport.example.com/{SECRET_2}
 
 # at this point the service port should be open for your IP
 ```
@@ -98,32 +98,32 @@ echo "knockport ALL=NOPASSWD: /usr/sbin/nft *" | sudo tee -a /etc/sudoers.d/knoc
 sudo su - knockport
 
 # Run KnockPort (example with nftables)
-python src/main.py -c config/config.yaml --firewall-type nftables --http-port 8080 --https-port 4431 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo
+python src/main.py -c config/config.yaml --firewall-type nftables --http-port 8080 --https-port 4431 --cert tests/knockport.testing.pem --key tests/knockport.testing.key --use-sudo
 ```
 
 ## Using with systemd:
 ```
-cp var/knock-port.service.dist var/knock-port.service
-# Update the app arguments inside knock-port.service
+cp var/knockport.service.dist var/knockport.service
+# Update the app arguments inside knockport.service
 # For non-root user: add --use-sudo flag and set User=knockport
 # For root user: remove --use-sudo flag and set User=root
-cp var/knock-port.service /etc/systemd/system/knock-port.service
+cp var/knockport.service /etc/systemd/system/knockport.service
 systemctl daemon-reload
-systemctl enable knock-port.service
-systemctl start knock-port.service
-systemctl status knock-port.service
-journalctl -u knock-port.service
-journalctl -fu knock-port.service
+systemctl enable knockport.service
+systemctl start knockport.service
+systemctl status knockport.service
+journalctl -u knockport.service
+journalctl -fu knockport.service
 
 ## on VyOs there needs to be a delay on boot
-# service needs to be disabled because we're using a timer (knock-port.timer)
+# service needs to be disabled because we're using a timer (knockport.timer)
 # to do a delayed start on boot, otherwise nftables are not yet properly loaded
-# which causes backend traffic not to get through even though Knock-Port
+# which causes backend traffic not to get through even though KnockPort
 # created all needed nftables rules
-systemctl disable knock-port.service
-cp var/knock-port.timer /etc/systemd/system/knock-port.timer
+systemctl disable knockport.service
+cp var/knockport.timer /etc/systemd/system/knockport.timer
 systemctl daemon-reload
-systemctl enable knock-port.timer
+systemctl enable knockport.timer
 ```
 
 ## How it works
@@ -140,7 +140,7 @@ There are 3 ports involved in the basic setup :
 So step-1 is to hide the setup from public, and step-2 is to secure the setup (to some degree. If you enable 2FA then HTTPS is secured) from step-1 network sniffing. In such a case the attacker can still attack the HTTPS port.
 
 #### Notes:
-- Knock-Port uses Flask web-server which is not meant for production use (security is not its 1st priority). There is a FlaskForm form checker and flask_limiter rate limiter in place to remedy attacks. Since how Knock-Port sets up firewall for stealthy HTTP and limiting HTTP request to 500B it's highly probable there's no way to hack the HTTP port. If 2FA is not used then an attacker can repeat the HTTP request which opens up the HTTPs port for defined number of seconds and that is a window for attacking the Flask HTTPS port. A more security-aware web server like Nginx should be put in front to improve security of Knock-Port even more. If the web server is run on the same host as Knock-Port, then use arguments --waf-http-port and --waf-https-port to set those ports so firewall rules are set up correctly.
+- KnockPort uses Flask web-server which is not meant for production use (security is not its 1st priority). There is a FlaskForm form checker and flask_limiter rate limiter in place to remedy attacks. Since how KnockPort sets up firewall for stealthy HTTP and limiting HTTP request to 500B it's highly probable there's no way to hack the HTTP port. If 2FA is not used then an attacker can repeat the HTTP request which opens up the HTTPs port for defined number of seconds and that is a window for attacking the Flask HTTPS port. A more security-aware web server like Nginx should be put in front to improve security of KnockPort even more. If the web server is run on the same host as KnockPort, then use arguments --waf-http-port and --waf-https-port to set those ports so firewall rules are set up correctly.
 - nftables were introduced in kernel 3.13 and Linux distributions started using it by default a few years later (from RHEL8/Debian10/Ubuntu20.04 onwards). This means iptables commands get translated to nftables, which means that various iptables modules are not supported if there's no equivalent nftables support. So use `--firewall-type iptables` only on systems that still use iptables by default (older than RHEL8/Debian10/Ubuntu20.04) .
 
 
@@ -175,13 +175,13 @@ From this point onwards you need to provide additional header `token` in the cur
 ```
 #!/bin/bash
 read -p "2FA token: " TOKEN
-curl -d "app=app1&access_key=secret123_http&token=${TOKEN}" -m 1 http://knock-port.example.com/1-{SECRET}
-curl -d "app=app1&access_key=secret456_https" -k https://knock-port.example.com/2-{SECRET}
+curl -d "app=app1&access_key=secret123_http&token=${TOKEN}" -m 1 http://knockport.example.com/1-{SECRET}
+curl -d "app=app1&access_key=secret456_https" -k https://knockport.example.com/2-{SECRET}
 ```
 
 A valid token can be used only once to prevent an attacker (sniffing the network) repeating the same request from another IP, so in case you fail to send the HTTPS request within the configured `step2_https_duration` value (if it's set to a low value), then you need to wait for the next token to generate.
 
-In addition of securing the services ports, enabling 2FA also shields Knock-Port itself from attacks on HTTPS port because the token is passed with the 1st step HTTP request (there's nothing wrong with sending tokens via HTTP as the 2FA key can't get reverse-engineered with sampling of tokens), so the 2nd step HTTPS port doesn't even get open for attacks.
+In addition of securing the services ports, enabling 2FA also shields KnockPort itself from attacks on HTTPS port because the token is passed with the 1st step HTTP request (there's nothing wrong with sending tokens via HTTP as the 2FA key can't get reverse-engineered with sampling of tokens), so the 2nd step HTTPS port doesn't even get open for attacks.
 
 
 ## TODO

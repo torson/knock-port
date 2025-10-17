@@ -1,19 +1,19 @@
-# /etc/systemd/system/knock-port.timer
+# /etc/systemd/system/knockport.timer
 
 ### instructions to set up
-# cp var/knock-port.timer /etc/systemd/system/knock-port.timer
+# cp var/knockport.timer /etc/systemd/system/knockport.timer
 # systemctl daemon-reload
-# systemctl enable knock-port.timer
-# systemctl start knock-port.timer
+# systemctl enable knockport.timer
+# systemctl start knockport.timer
 
 [Unit]
 # This is needed in case nftables are not yet properly loaded which causes backend traffic
-# not to get through even though Knock-Port created all needed nftables rules
-Description=Delay knock-port service for 60s after boot
+# not to get through even though KnockPort created all needed nftables rules
+Description=Delay knockport service for 60s after boot
 
 [Timer]
 OnBootSec=60
-Unit=knock-port.service
+Unit=knockport.service
 
 [Install]
 WantedBy=timers.target

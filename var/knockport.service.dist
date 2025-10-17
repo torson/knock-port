@@ -1,16 +1,16 @@
-# /etc/systemd/system/knock-port.service
+# /etc/systemd/system/knockport.service
 
 ### instructions to set up
-# cp var/knock-port.service.dist var/knock-port.service
-# Edit var/knock-port.service to configure User and ExecStart based on your setup
-# cp var/knock-port.service /etc/systemd/system/knock-port.service
+# cp var/knockport.service.dist var/knockport.service
+# Edit var/knockport.service to configure User and ExecStart based on your setup
+# cp var/knockport.service /etc/systemd/system/knockport.service
 # systemctl daemon-reload
-# # service needs to be disabled because we're using a timer (knock-port.timer) to do a delayed start on boot
-# systemctl disable knock-port.service
-# systemctl start knock-port.service
-# systemctl status knock-port.service
-# journalctl -u knock-port.service
-# journalctl -fu knock-port.service
+# # service needs to be disabled because we're using a timer (knockport.timer) to do a delayed start on boot
+# systemctl disable knockport.service
+# systemctl start knockport.service
+# systemctl status knockport.service
+# journalctl -u knockport.service
+# journalctl -fu knockport.service
 
 [Unit]
 Description=Port knocking service
@@ -27,7 +27,7 @@ WorkingDirectory=/home/knockport/knock-port
 # python -m venv ~/python-knockport
 ExecStartPre=/home/knockport/python-knockport/bin/pip install -r requirements.txt
 # Non-root user with --use-sudo (recommended)
-ExecStart=/home/knockport/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo
+ExecStart=/home/knockport/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knockport.testing.pem --key tests/knockport.testing.key --use-sudo
 Environment="PATH=/home/knockport/python-knockport/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 # Configuration for root user (alternative)
@@ -35,15 +35,15 @@ Environment="PATH=/home/knockport/python-knockport/bin:/usr/local/sbin:/usr/loca
 # Group=root
 # WorkingDirectory=/app
 # ExecStartPre=/root/python-knockport/bin/pip install -r requirements.txt
-# ExecStart=/root/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key
+# ExecStart=/root/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knockport.testing.pem --key tests/knockport.testing.key
 # Environment="PATH=/root/python-knockport/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 Restart=always
 
 ## alternatively output to a logfile
-# StandardOutput=append:/var/log/knock-port.log
+# StandardOutput=append:/var/log/knockport.log
 ## stderr also to logfile
-# StandardError=append:/var/log/knock-port.log
+# StandardError=append:/var/log/knockport.log
 ## .. or to systemd journal
 # StandardError=inherit
 

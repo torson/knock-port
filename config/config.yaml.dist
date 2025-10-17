@@ -25,7 +25,7 @@ openvpn:
   step2_https_duration: 5
 
 http:
-  port: 80   # WARNING: if you set here the same port as Knock-Port http port, then the requests will start going to the backend server and not Knock-Port and you'll loose access to Knock-Port . Same goes for HTTPS port
+  port: 80   # WARNING: if you set here the same port as KnockPort http port, then the requests will start going to the backend server and not KnockPort and you'll loose access to KnockPort . Same goes for HTTPS port
   access_key_http:
     - secret_http
   access_key_https:

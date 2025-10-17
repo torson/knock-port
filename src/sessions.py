@@ -30,7 +30,7 @@ def manage_sessions(session_file, sessions, lock, firewall_type, args):
         time.sleep(1)
 
 def monitor_stealthy_ports(config, stop_event, session_file, args, app):
-    # in case there's unintended rules change that Knock-Port relies on we reapply stealthy ports rules
+    # in case there's unintended rules change that KnockPort relies on we reapply stealthy ports rules
     time.sleep(30)
     while True:
         http_port = args.waf_http_port if args.waf_http_port else args.http_port

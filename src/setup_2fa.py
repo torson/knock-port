@@ -18,7 +18,7 @@ def generate_2fa_config(access_key, interval):
     # Generate provisioning URI for QR code
     provisioning_uri = totp.provisioning_uri(
         name=access_key,
-        issuer_name="Knock-Port"
+        issuer_name="KnockPort"
     )
 
     # Generate QR code
