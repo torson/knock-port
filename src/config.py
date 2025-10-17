@@ -1,6 +1,6 @@
 import yaml
 import sys
-from utils import log
+from utils import log, log_err
 
 def load_config(config_path):
     log("Loading configuration...")
@@ -110,3 +110,4 @@ def init_vars(args, config):
             # chain INPUT is used on Debian so we set it as default
             args.nftables_chain_default_postrouting = "POSTROUTING"
         log(f"nftables_chain_default_postrouting = {args.nftables_chain_default_postrouting}")
+

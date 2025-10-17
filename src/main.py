@@ -8,7 +8,7 @@ from firewall import (
     setup_stealthy_ports, cleanup_stealthy_ports,
     apply_nat_rules, cleanup_nat_rules, cleanup_firewall
 )
-from utils import log
+from utils import log, log_err
 import time
 
 def shutdown_servers(http_server, https_server, app, firewall_commands):
@@ -36,10 +36,13 @@ def signal_handler(sig, frame, http_server, https_server, app, firewall_commands
 
 if __name__ == '__main__':
     args = parse_args()
+    args_dict = vars(args)
+    log("Starting KnockPort with CLI arguments:")
+    for key in sorted(args_dict):
+        log(f"  {key} = {args_dict[key]!r}")
+
     app = create_app(args.config, 'cache/sessions.json', args)
     app.args = args  # Store args in app config for access in shutdown
-
-    log(f"use_sudo: {args.use_sudo}")
 
     init_vars(args, app.config['config'])
     apply_nat_rules(app.config['config'], args)

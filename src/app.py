@@ -3,10 +3,10 @@ import os
 import threading
 import time
 from collections import defaultdict
+import ipaddress
 from flask import Flask, request, abort
 from config import load_config
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from flask_wtf import FlaskForm
 from wtforms import StringField
 from wtforms.validators import Optional, DataRequired, Length
@@ -21,10 +21,48 @@ warnings.filterwarnings("ignore", category=UserWarning, module='flask_limiter.ex
 
 app = Flask(__name__)
 app.config['WTF_CSRF_ENABLED'] = False
+app.config.setdefault('trusted_waf_networks', [])
 
 # Token cache structure: {access_key: [(token, timestamp), ...]}
 token_cache = defaultdict(list)
 TOKEN_CACHE_WINDOW = 60  # seconds
+
+def _validate_ip(value: str, source: str):
+    candidate = value.strip() if value else value
+    if not candidate:
+        log_err(f"{source} missing")
+        abort(503)
+    try:
+        return ipaddress.ip_address(candidate)
+    except ValueError:
+        log_err(f"Invalid {source} '{value}'")
+        abort(503)
+
+def get_client_ip():
+    # Resolve the originating client IP
+    trusted_waf_networks = app.config.get('trusted_waf_networks', [])
+    remote_ip = _validate_ip(request.remote_addr, "remote address")
+
+    if not trusted_waf_networks:
+        return str(remote_ip)
+
+    if not any(remote_ip in network for network in trusted_waf_networks):
+        log_err(f"Rejecting request from untrusted WAF address '{remote_ip}' while --waf-trusted-ips is configured")
+        abort(503)
+
+    x_real_ip = request.headers.get('X-Real-IP', '')
+    if x_real_ip.strip():
+        return str(_validate_ip(x_real_ip, "X-Real-IP header"))
+
+    x_forwarded_for = request.headers.get('X-Forwarded-For', '')
+    if x_forwarded_for:
+        forwarded_ips = [ip.strip() for ip in x_forwarded_for.split(',') if ip.strip()]
+        if forwarded_ips:
+            candidate = forwarded_ips[-1]
+            return str(_validate_ip(candidate, "X-Forwarded-For header"))
+
+    log_err("Trusted WAF request missing client IP headers (X-Real-IP/X-Forwarded-For)")
+    abort(503)
 
 def cleanup_token_cache():
     # Remove tokens older than TOKEN_CACHE_WINDOW seconds
@@ -37,7 +75,7 @@ def cleanup_token_cache():
         ]
 
 limiter = Limiter(
-    key_func=get_remote_address,
+    key_func=get_client_ip,
     default_limits=["200 per day", "50 per hour"]
 )
 limiter.init_app(app)
@@ -51,7 +89,7 @@ class RequestForm(FlaskForm):
     token = StringField('token', validators=[Optional(), Length(min=6, max=6)])
 
 def handle_request(config, sessions, lock, session_file, access_key_type, args):
-    client_ip = request.remote_addr
+    client_ip = get_client_ip()
     form = RequestForm(request.form)
     if not form.validate():
         for fieldName, errorMessages in form.errors.items():
@@ -112,7 +150,8 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
             else:
                 duration = 60
             protocol = "tcp"
-            port_to_open = args.https_port
+            waf_https_port = getattr(args, 'waf_https_port', None)
+            port_to_open = waf_https_port if waf_https_port else args.https_port
             log(f"Opening https port {port_to_open} for {client_ip} on {interface_ext} for 5s")
         else:
             duration = config[app_name]['duration']
@@ -185,6 +224,19 @@ def create_app(config_path, session_file, args):
     config = load_config(config_path)
     app.config['config'] = config
     app.config['service_rule_cleanup_on_shutdown'] = args.service_rule_cleanup_on_shutdown
+    trusted_waf_networks = []
+    raw_trusted = getattr(args, 'waf_trusted_ips', None)
+    if raw_trusted:
+        for entry in raw_trusted.split(','):
+            entry = entry.strip()
+            if not entry:
+                continue
+            try:
+                trusted_waf_networks.append(ipaddress.ip_network(entry, strict=False))
+            except ValueError:
+                log_err(f"Invalid --waf-trusted-ips entry '{entry}'. Aborting startup.")
+                raise SystemExit(1)
+    app.config['trusted_waf_networks'] = trusted_waf_networks
     sessions = []
     lock = Lock()
 

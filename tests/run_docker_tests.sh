@@ -135,9 +135,9 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
 
     log "Starting KnockPort"
     log docker exec -u root port-knock-server bash -c \
-        'python src/main.py -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
+        'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
     docker exec -u root port-knock-server bash -c \
-        'python src/main.py -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
+        'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
 
     sleep 3
 
@@ -159,13 +159,57 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
 
     log "Starting KnockPort"
     log docker exec -u knockport port-knock-server bash -c \
-        'python src/main.py -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo > tests/run_docker_tests.server.iptables.log 2>&1 &'
+        'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo > tests/run_docker_tests.server.iptables.log 2>&1 &'
     docker exec -u knockport port-knock-server bash -c \
-        'python src/main.py -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo > tests/run_docker_tests.server.iptables.log 2>&1 &'
+        'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo > tests/run_docker_tests.server.iptables.log 2>&1 &'
 
     sleep 3
     log "Running tests"
     run_command python tests/tests.py
+
+    ###
+    log "Running tests with --waf-http-port/--waf-https-port arguments"
+    docker exec -u root port-knock-server bash -c 'pkill -f main.py' || true
+    sleep 5
+
+    log "Starting KnockPort with WAF ports"
+    log docker exec -u root port-knock-server bash -c \
+        'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type iptables --http-port 8081 --https-port 8444 --waf-http-port '${KNOCKPORT_PORT_HTTP}' --waf-https-port '${KNOCKPORT_PORT_HTTPS}' --waf-trusted-ips 127.0.0.1 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
+    docker exec -u root port-knock-server bash -c \
+        'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type iptables --http-port 8081 --https-port 8444 --waf-http-port '${KNOCKPORT_PORT_HTTP}' --waf-https-port '${KNOCKPORT_PORT_HTTPS}' --waf-trusted-ips 127.0.0.1 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
+
+    sleep 3
+
+    log "Starting Nginx reverse proxy"
+    docker exec -u root port-knock-server bash -c \
+        'nginx -c /app/tests/nginx-knockport.conf'
+
+    sleep 3
+    log "Running tests through Nginx"
+    run_command python tests/tests.py
+
+    # ###
+    # ### integration tests fail with this, but should be tested once in a while
+    # log "Running tests with different/incorrect --waf-trusted-ips IP"
+    # docker exec -u root port-knock-server bash -c 'pkill -f main.py' || true
+    # docker exec -u root port-knock-server bash -c 'pkill -f nginx' || true
+    # sleep 5
+
+    # log "Starting KnockPort with WAF ports"
+    # log docker exec -u root port-knock-server bash -c \
+    #     'python src/main.py -c tests/config.test.yaml --firewall-type iptables --http-port 8081 --https-port 8444 --waf-http-port '${KNOCKPORT_PORT_HTTP}' --waf-https-port '${KNOCKPORT_PORT_HTTPS}' --waf-trusted-ips 172.0.0.1 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
+    # docker exec -u root port-knock-server bash -c \
+    #     'python src/main.py -c tests/config.test.yaml --firewall-type iptables --http-port 8081 --https-port 8444 --waf-http-port '${KNOCKPORT_PORT_HTTP}' --waf-https-port '${KNOCKPORT_PORT_HTTPS}' --waf-trusted-ips 172.0.0.1 --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
+
+    # sleep 3
+
+    # log "Starting Nginx reverse proxy"
+    # docker exec -u root port-knock-server bash -c \
+    #     'nginx -c /app/tests/nginx-knockport.conf'
+
+    # sleep 3
+    # log "Running tests through Nginx"
+    # run_command python tests/tests.py
 
     run_command docker stop -t 1 port-knock-server
 fi
@@ -200,9 +244,9 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_NFTABLES}"  = "true" ]]; then
     #     https://unix.stackexchange.com/questions/753858/nftables-deleting-a-rule-without-passing-handle-similar-to-iptables-delete
     log "Starting KnockPort"
     log docker exec -u root port-knock-server bash -c \
-        'python src/main.py -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.nftables.log 2>&1 &'
+        'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.nftables.log 2>&1 &'
     docker exec -u root port-knock-server bash -c \
-        'python src/main.py -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.nftables.log 2>&1 &'
+        'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.nftables.log 2>&1 &'
 
     sleep 3
 
@@ -217,9 +261,9 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_NFTABLES}"  = "true" ]]; then
 
     log "Starting KnockPort"
     log docker exec -u knockport port-knock-server bash -c \
-        'python src/main.py -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo > tests/run_docker_tests.server.nftables.log 2>&1 &'
+        'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo > tests/run_docker_tests.server.nftables.log 2>&1 &'
     docker exec -u knockport port-knock-server bash -c \
-        'python src/main.py -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo > tests/run_docker_tests.server.nftables.log 2>&1 &'
+        'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo > tests/run_docker_tests.server.nftables.log 2>&1 &'
 
     sleep 3
 
@@ -232,9 +276,9 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_NFTABLES}"  = "true" ]]; then
     sleep 5
     log "Starting KnockPort"
     log docker exec -u root port-knock-server bash -c \
-        'python src/main.py -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --nftables-chain-input IN-KnockPort --nftables-chain-forward FWD-KnockPort > tests/run_docker_tests.server.nftables.log 2>&1 &'
+        'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --nftables-chain-input IN-KnockPort --nftables-chain-forward FWD-KnockPort > tests/run_docker_tests.server.nftables.log 2>&1 &'
     docker exec -u root port-knock-server bash -c \
-        'python src/main.py -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --nftables-chain-input IN-KnockPort --nftables-chain-forward FWD-KnockPort > tests/run_docker_tests.server.nftables.log 2>&1 &'
+        'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type nftables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --nftables-chain-input IN-KnockPort --nftables-chain-forward FWD-KnockPort > tests/run_docker_tests.server.nftables.log 2>&1 &'
 
     sleep 3
 
@@ -388,10 +432,10 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
 
     log "Starting KnockPort"
     log docker exec -u root port-knock-server vbash -c \
-        'cd /app && ~/venv/bin/python src/main.py -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
+        'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
 
     docker exec -u root port-knock-server vbash -c \
-        'cd /app && ~/venv/bin/python src/main.py -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
+        'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
     # app init takes a bit longer on clean vyos as it creates firewall rules using the 'set' commands which are slow
     sleep 15
 
@@ -432,10 +476,10 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
 
     log "Starting KnockPort"
     log docker exec -u knockport port-knock-server vbash -c \
-        'cd /app && ~/venv/bin/python src/main.py -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo > tests/run_docker_tests.server.vyos.log 2>&1 &'
+        'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo > tests/run_docker_tests.server.vyos.log 2>&1 &'
 
     docker exec -u knockport port-knock-server vbash -c \
-        'cd /app && ~/venv/bin/python src/main.py -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo > tests/run_docker_tests.server.vyos.log 2>&1 &'
+        'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knock-port.testing.pem --key tests/knock-port.testing.key --use-sudo > tests/run_docker_tests.server.vyos.log 2>&1 &'
     # app init takes a bit longer on clean vyos as it creates firewall rules using the 'set' commands which are slow
     sleep 15
 

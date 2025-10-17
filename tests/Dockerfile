@@ -4,7 +4,7 @@ RUN apt-get update && \
     echo "install system network utils" && \
     apt-get -y install iputils-ping net-tools telnet iproute2 procps dnsutils && \
     echo "install system utils" && \
-    apt-get -y install procps sudo
+    apt-get -y install procps sudo nginx
     # apt-get clean && \
     # rm -rf /var/lib/apt/lists/*
 

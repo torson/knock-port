@@ -1,4 +1,5 @@
 import argparse
+from utils import log, log_err
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Server Application")
@@ -20,5 +21,20 @@ def parse_args():
     parser.add_argument('--service-rule-cleanup-on-shutdown', action='store_true', default=False, help='Drop access also to services ports in addition to management (HTTP/HTTPS) ports when KnockPort is shut down. Default is to keep service port rules as is to not disrupt the services access when restarting KnockPort')
     parser.add_argument('--waf-http-port', type=int, help='(Only use if WAF is on the same host) Set the firewall rules for HTTP port of WAF/web-server that is forwarding traffic to Knock-Port')
     parser.add_argument('--waf-https-port', type=int, help='(Only use if WAF is on the same host) Set the firewall rules for HTTPS port of WAF/web-server that is forwarding traffic to Knock-Port')
+    parser.add_argument('--waf-trusted-ips', type=str, help='Comma-separated list of trusted WAF/proxy IP addresses or CIDR ranges allowed to supply client IP headers')
     parser.add_argument('--use-sudo', action='store_true', default=False, help='Prefix all firewall commands with sudo (add something like "knockport ALL=NOPASSWD: /usr/sbin/nft *" in /etc/sudoers.d/knockport)')
-    return parser.parse_args()
+    
+    args = parser.parse_args()
+
+    if not (args.http_port and args.https_port) :
+        log_err(f"ERROR: Both --http-port and --https-port need to be set")
+        raise SystemExit(1)
+
+    if (args.waf_http_port and not args.waf_https_port) or (not args.waf_http_port and args.waf_https_port):
+        log_err(f"ERROR: Both --waf-http-port and --waf-https-port need to be set")
+        raise SystemExit(1)
+
+    if (args.waf_http_port and args.waf_https_port):
+        args.waf_trusted_ips = "127.0.0.1"
+
+    return args
