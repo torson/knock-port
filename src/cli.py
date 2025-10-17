@@ -19,9 +19,9 @@ def parse_args():
     parser.add_argument('--nftables-chain-default-prerouting', type=str, help='chain hooked to nat prerouting, used for non-local services access')
     parser.add_argument('--nftables-chain-default-postrouting', type=str, help='chain hooked to nat postrouting, used for non-local services access')
     parser.add_argument('--service-rule-cleanup-on-shutdown', action='store_true', default=False, help='Drop access also to services ports in addition to management (HTTP/HTTPS) ports when KnockPort is shut down. Default is to keep service port rules as is to not disrupt the services access when restarting KnockPort')
-    parser.add_argument('--waf-http-port', type=int, help='(Only use if WAF is on the same host) Set the firewall rules for HTTP port of WAF/web-server that is forwarding traffic to KnockPort')
-    parser.add_argument('--waf-https-port', type=int, help='(Only use if WAF is on the same host) Set the firewall rules for HTTPS port of WAF/web-server that is forwarding traffic to KnockPort')
-    parser.add_argument('--waf-trusted-ips', type=str, help='Comma-separated list of trusted WAF/proxy IP addresses or CIDR ranges allowed to supply client IP headers')
+    parser.add_argument('--waf-http-port', type=int, help='(WAF needs to be on the same host, can also be inside a docker container) Set the firewall rules for HTTP port of WAF/web-server that is forwarding traffic to KnockPort')
+    parser.add_argument('--waf-https-port', type=int, help='(WAF needs to be on the same host, can also be inside a docker container) Set the firewall rules for HTTPS port of WAF/web-server that is forwarding traffic to KnockPort')
+    parser.add_argument('--waf-trusted-ips', type=str, help='Comma-separated list of trusted WAF IP addresses or CIDR ranges allowed to supply client IP headers')
     parser.add_argument('--use-sudo', action='store_true', default=False, help='Prefix all firewall commands with sudo (add something like "knockport ALL=NOPASSWD: /usr/sbin/nft *" in /etc/sudoers.d/knockport)')
     
     args = parser.parse_args()

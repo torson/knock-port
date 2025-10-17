@@ -52,9 +52,9 @@ sudo python src/main.py -c config/config.yaml --firewall-type nftables --http-po
 python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knockport.testing.pem --key tests/knockport.testing.key --use-sudo
 
 # Sample curl commands to authenticate and test the server with the sample configuration
-# > they should be run one after the other (depending what step2_https_duration is set to)
+# > they should be run one after the other within the step2_https_duration window (set in config.yaml)
 curl -d 'app=app1&access_key=secret123_http' -m 1 http://knockport.example.com/{SECRET_1}
-curl -d 'app=app1&access_key=secret456_https' -k https://knockport.example.com/{SECRET_2}
+curl -d 'app=app1&access_key=secret456_https' -m 1 -k https://knockport.example.com/{SECRET_2}
 
 # at this point the service port should be open for your IP
 ```
@@ -137,10 +137,10 @@ There are 3 ports involved in the basic setup :
 3. service port: closed by default , opened only for a time window (configured with `duration`) for the client IP after a valid HTTPS request was made.
 
 2-step approach is needed, because HTTPS port can't be made stealthy due to the nature of HTTPS handshake, and HTTP is plaintext so a network sniffer can easily catch the access key - that's why the step-1 and step-2 access keys should be different. Also there can be multiple keys defined, so each user can have different/unique pairs.
-So step-1 is to hide the setup from public, and step-2 is to secure the setup (to some degree. If you enable 2FA then HTTPS is secured) from step-1 network sniffing. In such a case the attacker can still attack the HTTPS port.
+Step-1 is to hide the setup from public, and step-2 is to secure the setup to some degree from step-1 network sniffing. The attacker can still attack the HTTPS port if 2FA is not enabled.
 
 #### Notes:
-- KnockPort uses Flask web-server which is not meant for production use (security is not its 1st priority). There is a FlaskForm form checker and flask_limiter rate limiter in place to remedy attacks. Since how KnockPort sets up firewall for stealthy HTTP and limiting HTTP request to 500B it's highly probable there's no way to hack the HTTP port. If 2FA is not used then an attacker can repeat the HTTP request which opens up the HTTPs port for defined number of seconds and that is a window for attacking the Flask HTTPS port. A more security-aware web server like Nginx should be put in front to improve security of KnockPort even more. If the web server is run on the same host as KnockPort, then use arguments --waf-http-port and --waf-https-port to set those ports so firewall rules are set up correctly.
+- KnockPort uses Flask web-server which is not meant for production use (security is not its 1st priority). There is a FlaskForm form checker and flask_limiter rate limiter in place to remedy attacks. Since how KnockPort sets up firewall for stealthy HTTP and limiting HTTP request to 500B, the HTTP port is fairly hardened. If 2FA is not used then an attacker can repeat the HTTP request which opens up the HTTPs port for defined number of seconds and that is a window for attacking the Flask HTTPS port. A more security-aware WAF/reverse-proxy like Nginx can be put in front to improve security posture of KnockPort setup. Use arguments --waf-http-port and --waf-https-port to set those ports so firewall rules are set up correctly. The WAF/reverse-proxy should be running on the same host as KnockPort because KnockPort manages firewall rules for both itself and WAF/reverse-proxy. You can set `--waf-trusted-ips` in case the WAF/reverse-proxy is running as a docker container on the same host.
 - nftables were introduced in kernel 3.13 and Linux distributions started using it by default a few years later (from RHEL8/Debian10/Ubuntu20.04 onwards). This means iptables commands get translated to nftables, which means that various iptables modules are not supported if there's no equivalent nftables support. So use `--firewall-type iptables` only on systems that still use iptables by default (older than RHEL8/Debian10/Ubuntu20.04) .
 
 

@@ -1,6 +1,6 @@
 # KnockPort
 
-A lightweight, on-demand port-knocking gateway. KnockPort opens service ports only for the IP that proves knowledge of a shared secret via a two-step HTTP → HTTPS flow, then closes them automatically after a configured period. Use it to safely expose legacy or internal services without leaving ports publicly reachable.
+A lightweight, on-demand port-knocking gateway - a modern take on traditional port knocking. KnockPort opens service ports only for the IP that proves knowledge of a shared secret via a two-step HTTP → HTTPS flow, then closes them automatically after a configured period. Use it to safely expose legacy or internal services without leaving ports publicly reachable.
 
 - Two-step open: stealth HTTP + HTTPS authentication
 - Per-IP access with time-limited windows
@@ -50,9 +50,9 @@ sudo python src/main.py -c config/config.yaml --firewall-type nftables --http-po
 python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knockport.testing.pem --key tests/knockport.testing.key --use-sudo
 
 # Sample curl commands to authenticate and test the server with the sample configuration
-# > they should be run one after the other (depending what step2_https_duration is set to)
+# > they should be run one after the other within the step2_https_duration window (set in config.yaml)
 curl -d 'app=app1&access_key=secret123_http' -m 1 http://knockport.example.com/{SECRET_1}
-curl -d 'app=app1&access_key=secret456_https' -k https://knockport.example.com/{SECRET_2}
+curl -d 'app=app1&access_key=secret456_https' -m 1 -k https://knockport.example.com/{SECRET_2}
 
 # at this point the service port should be open for your IP
 ```
