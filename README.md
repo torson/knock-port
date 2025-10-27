@@ -1,8 +1,8 @@
 # KnockPort
 
-A lightweight, on-demand port-knocking gateway - a modern take on traditional port knocking. KnockPort opens service ports only for the IP that proves knowledge of a shared secret via a two-step HTTP → HTTPS flow, then closes them automatically after a configured period. Use it to safely expose legacy or internal services without leaving ports publicly reachable.
+A port-knocking firewall manager. A modern take on traditional port knocking with 2FA support. KnockPort opens service ports for an IP via a authenticated two-step HTTP → HTTPS flow, then closes them automatically after a configured period. Use it to safely expose legacy or internal services without leaving ports publicly reachable.
 
-- Two-step open: stealth HTTP + HTTPS authentication
+- Two-step port open: stealthy HTTP + HTTPS authentication
 - Per-IP access with time-limited windows
 - Local services or LAN hosts (port forwarding)
 - Works with iptables, nftables, and VyOS nftables
@@ -59,13 +59,13 @@ curl -d 'app=app1&access_key=secret456_https' -m 1 -k https://knockport.example.
 
 
 ## How It Works
-- Step 1 (HTTP): client posts to a secret path. Firewall rules keep the HTTP endpoint stealthy (client doesn't receive the response) and path-filtered .
+- Step 1 (HTTP): client posts a request to initiate step 2. Firewall rules keep the HTTP endpoint path-filtered (firewall blocks the TCP packet of an invalid-path request before it reaches KnockPort) and stealthy (firewall blocks the outgoing acknowledgement ACK packet for the POST request data that was sent by KnockPort. From the client's perspective the service is malfunctioning as the client never receives the ACK packet)
 - Step 2 (HTTPS): upon a valid step 1, HTTPS opens briefly for the requester IP to submit the second secret. On success, the target service port opens for a configured duration for that IP.
 
 ## Security Notes
-- HTTPS cannot be fully stealth due to TLS handshakes; keep the step-2 open window short.
-- Consider placing a hardened reverse proxy / WAF (Nginx for example) in front if desired (set `--waf-http-port`, `--waf-https-port`).
 - 2FA is supported and recommended for compromised-client computer scenarios.
+- Consider placing a hardened reverse proxy / WAF (Nginx for example) in front if desired (set `--waf-http-port`, `--waf-https-port`).
+- HTTPS cannot be fully stealth due to TLS handshakes; keep the step 2 open window short.
 - Use `--firewall-type iptables` on systems that still default to iptables; modern distros translate iptables to nftables.
 
 ## Operating Tips

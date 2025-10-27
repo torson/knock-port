@@ -159,7 +159,7 @@ Step-1 is to hide the setup from public, and step-2 is to secure the setup to so
 - After a timeout, the client's TCP stack retransmits the HTTP POST request.
 - This continues, following the exponential backoff strategy, until it reaches the maximum retransmission limit.
 
-Note: After the addition of firewall level filtering of HTTP URL path (which was not in the initial design), this response blocking is actually not really needed anymore, but I still left it in.
+Note: After the addition of firewall level filtering of HTTP URL path (which was not in the initial design), this response blocking is actually not really needed anymore (provided that the URL path is non-guessable), but I still left it in.
 
 ## 2FA
 
