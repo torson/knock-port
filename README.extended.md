@@ -132,7 +132,7 @@ To open a configured service port you need to make 2 requests, first HTTP and th
 It checks if the request payload matches an app name and access key in the configuration file. If there's a match, it opens the HTTPS port for client IP for a limited duration as specified in the configuration. After a valid HTTPS request it opens up the service port for client IP. The server manages open port "sessions" and automatically closes the port for the client IP after the duration expires.
 
 There are 3 ports involved in the basic setup :
-1. HTTP port: for step-1, stealthy - On the firewall level it responds only with the TCP initialization phase packets (SYN and ACK). Only single-TCP-packet requests are allowed and only those that are `POST /_CONFIGURED_PATH_` requests, which blocks all blind brute-force and random rouge requests on the firewall level so they don't even get to the webserver. The HTTP response is blocked, so the HTTP client doesn't get the actual response - it just waits till timeout . A valid request (POST request with a valid secret key for step-1) opens up HTTPS port for that client IP. One needs to know the exact `/_CONFIGURED_PATH_` to get through. This can be obtained on the network if the attacker does packet sniffing on the same network where a valid HTTP request happens
+1. HTTP port: for step-1, path-filtered - On the firewall level we only allow the TCP initialization packets and `POST /_CONFIGURED_PATH_` requests up to 500 bytes, which blocks blind brute-force and random rogue requests before they reach the web server. Valid requests complete the TCP flow and receive the HTTP response from KnockPort. One needs to know the exact `/_CONFIGURED_PATH_` to get through. This can be obtained on the network if the attacker does packet sniffing on the same network where a valid HTTP request happens
 2. HTTPS port: for step-2, closed by default, opened only for a time window (configured with `step2_https_duration`) for the client IP after a valid HTTP request. A valid request (POST request with a valid secret key for step-2) opens up service port for that client IP. As the request is HTTPS, packet sniffing by an attacker will not reveal either request path or the secret key for step-2.
 3. service port: closed by default , opened only for a time window (configured with `duration`) for the client IP after a valid HTTPS request was made.
 
@@ -140,11 +140,11 @@ There are 3 ports involved in the basic setup :
 Step-1 is to hide the setup from public, and step-2 is to secure the setup to some degree from step-1 network sniffing. The attacker can still attack the HTTPS port if 2FA is not enabled.
 
 #### Notes:
-- KnockPort uses Flask web-server which is not meant for production use (security is not its 1st priority). There is a FlaskForm form checker and flask_limiter rate limiter in place to remedy attacks. Since how KnockPort sets up firewall for stealthy HTTP and limiting HTTP request to 500B, the HTTP port is fairly hardened. If 2FA is not used then an attacker can repeat the HTTP request which opens up the HTTPs port for defined number of seconds and that is a window for attacking the Flask HTTPS port. A more security-aware WAF/reverse-proxy like Nginx can be put in front to improve security posture of KnockPort setup. Use arguments --waf-http-port and --waf-https-port to set those ports so firewall rules are set up correctly. The WAF/reverse-proxy should be running on the same host as KnockPort because KnockPort manages firewall rules for both itself and WAF/reverse-proxy. You can set `--waf-trusted-ips` in case the WAF/reverse-proxy is running as a docker container on the same host.
+- KnockPort uses Flask web-server which is not meant for production use (security is not its 1st priority). There is a FlaskForm form checker and flask_limiter rate limiter in place to remedy attacks. KnockPort path-filters the HTTP port and limits HTTP requests to 500B, so the HTTP port is fairly hardened. If 2FA is not used then an attacker can repeat the HTTP request which opens up the HTTPS port for defined number of seconds and that is a window for attacking the Flask HTTPS port. A more security-aware WAF/reverse-proxy like Nginx can be put in front to improve security posture of KnockPort setup. Use arguments --waf-http-port and --waf-https-port to set those ports so firewall rules are set up correctly. The WAF/reverse-proxy should be running on the same host as KnockPort because KnockPort manages firewall rules for both itself and WAF/reverse-proxy. You can set `--waf-trusted-ips` in case the WAF/reverse-proxy is running as a docker container on the same host.
 - nftables were introduced in kernel 3.13 and Linux distributions started using it by default a few years later (from RHEL8/Debian10/Ubuntu20.04 onwards). This means iptables commands get translated to nftables, which means that various iptables modules are not supported if there's no equivalent nftables support. So use `--firewall-type iptables` only on systems that still use iptables by default (older than RHEL8/Debian10/Ubuntu20.04) .
 
 
-### Detailed Breakdown of the stealthy HTTP request/response procedure
+### Detailed Breakdown of the HTTP request/response procedure
 1. Client (curl) sends POST request:
 
 - TCP SYN to establish connection.
@@ -154,12 +154,8 @@ Step-1 is to hide the setup from public, and step-2 is to secure the setup to so
 
 2. Server receives POST request:
 
-- Due to iptables/nftables rules, the server host does not send an ACK back for the HTTP POST data (web server sends it, but it's dropped by the firewall).
-- The TCP stack on the client side waits for an ACK or response. As the ACK never comes there's TCP stack retransmission:
-- After a timeout, the client's TCP stack retransmits the HTTP POST request.
-- This continues, following the exponential backoff strategy, until it reaches the maximum retransmission limit.
-
-Note: After the addition of firewall level filtering of HTTP URL path (which was not in the initial design), this response blocking is actually not really needed anymore (provided that the URL path is non-guessable), but I still left it in.
+- Firewall rules allow the packet only if it is a `POST /_CONFIGURED_SECRET_PATH_` request under 500 bytes. Invalid packets are dropped before they reach KnockPort.
+- KnockPort validates the payload, returns an HTTP response, and (on success) opens the HTTPS port for the client IP.
 
 ## 2FA
 
@@ -204,4 +200,3 @@ For testing against VyOS you need to set var VYOS_ROLLING_VERSION with correct v
 export VYOS_ROLLING_VERSION=1.5-rolling-202410280007
 ```
 The `run_docker_tests.sh` will download the ISO file and generate a docker image from it.
-

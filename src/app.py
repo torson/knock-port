@@ -101,8 +101,8 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
     access_key = form.access_key.data
 
     if app_name == config['global']['healthcheck_app_name']:
-        # not logging healthcheck requests
-        return '', 200
+        # not logging healthcheck requests, though Flask still logs it
+        return 'OK', 200
 
     log(f"Received {request.method} request from {client_ip} , data: {dict(request.form)}")
     # log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
@@ -218,7 +218,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
     else:
         log_err(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
         abort(503)
-    return '', 200
+    return 'OK', 200
 
 def create_app(config_path, session_file, args):
     config = load_config(config_path)

@@ -134,9 +134,6 @@ def setup_stealthy_ports(config, args, app):
                 f"iptables -I INPUT -i {config['global']['interface_ext']} -p tcp --dport {http_port} -m string --string 'POST {app.config['config']['global']['http_post_path']}' --algo bm --to {http_post_phase1_hex_string_bit_length} -m length --length 0:500 -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-POST-path-{app.config['config']['global']['http_post_path'].replace('/', '_')}-accept'",
             f"echo Allow incoming SYN packets to {public_server_label} HTTP port for initial three-way TCP handshake",
                 f"iptables -I INPUT -i {config['global']['interface_ext']} -p tcp --dport {http_port} --tcp-flags ALL SYN -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-SYN-accept'",
-            f"echo Drop outgoing traffic from {public_server_label} HTTP port , allow only packets for initial handshake so Flask is able to handle the request . Client/curl will not receive a response from HTTP port",
-                f"iptables -I OUTPUT -o {config['global']['interface_int']} -p tcp --sport {http_port} -j DROP -m comment --comment 'ipv4-OUT-KnockPort-{config['global']['interface_int']}-tcp-sport-{http_port}-drop'",
-                f"iptables -I OUTPUT -o {config['global']['interface_int']} -p tcp --sport {http_port} --tcp-flags ALL SYN,ACK -j ACCEPT -m comment --comment 'ipv4-OUT-KnockPort-{config['global']['interface_int']}-tcp-sport-{http_port}-syn-ack-accept'",
             f"echo Drop incoming packets to {public_server_label} HTTPS port. Per IP allow rules will be created on request to {public_server_label} HTTP port",
                 f"iptables -I INPUT -i {config['global']['interface_ext']} -p tcp --dport {https_port} -j DROP -m comment --comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{https_port}-drop'"
         ]
@@ -240,27 +237,6 @@ def setup_stealthy_ports(config, args, app):
                 f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_default_input} index 0 tcp dport {http_port} ip length 0-500 @ih,0,{http_post_phase1_hex_string_bit_length} == 0x{http_post_phase1_hex_string} iifname {config['global']['interface_ext']} counter accept comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-POST-path-{app.config['config']['global']['http_post_path'].replace('/', '_')}-accept'",
             f"echo Allow incoming SYN packets to {public_server_label} HTTP port for initial three-way TCP handshake",
                 f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_default_input} index 0 tcp dport {http_port} 'tcp flags & (fin|syn|rst|ack) == syn' iifname {config['global']['interface_ext']} counter accept comment 'ipv4-IN-KnockPort-{config['global']['interface_ext']}-tcp-dport-{http_port}-SYN-accept'"
-        ]
-
-        firewall_commands = firewall_commands + [
-            f"echo Drop outgoing traffic from {public_server_label} HTTP port , allow only TCP packets for initial three-way TCP handshake so web-server is able to handle the request . Client will not receive a HTTP response"
-        ]
-        if args.firewall_type == 'nftables' :
-            try:
-                output_lines_count = execute_command_with_pipes(command=f"nft list chain {args.nftables_table_filter} {args.nftables_chain_default_output}", command2="wc -l", print_command=False, print_output=False, use_sudo=args.use_sudo).strip()
-            except Exception:
-                output_lines_count = "0"
-            if output_lines_count == "5" :
-                # chain empty
-                firewall_commands.append(f"nft add rule ip {args.nftables_table_filter} {args.nftables_chain_default_output} tcp sport {http_port} oifname {config['global']['interface_int']} counter drop comment 'ipv4-OUT-KnockPort-{config['global']['interface_int']}-tcp-sport-{http_port}-drop'")
-            else:
-                firewall_commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_default_output} index 0 tcp sport {http_port} oifname {config['global']['interface_int']} counter drop comment 'ipv4-OUT-KnockPort-{config['global']['interface_int']}-tcp-sport-{http_port}-drop'")
-        elif args.firewall_type == 'vyos' :
-            # vyos nft chains are never empty
-            firewall_commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_default_output} index 0 tcp sport {http_port} oifname {config['global']['interface_int']} counter drop comment 'ipv4-OUT-KnockPort-{config['global']['interface_int']}-tcp-sport-{http_port}-drop'")
-
-        firewall_commands = firewall_commands + [
-                f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_default_output} index 0 tcp sport {http_port} 'tcp flags & (syn|ack) == syn|ack' oifname {config['global']['interface_int']} counter accept comment 'ipv4-OUT-KnockPort-{config['global']['interface_int']}-tcp-sport-{http_port}-syn-ack-accept'"
         ]
 
         if args.firewall_type == 'nftables':
