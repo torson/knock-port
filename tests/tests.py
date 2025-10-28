@@ -42,12 +42,24 @@ class TestServer(unittest.TestCase):
     def tearDownClass(cls):
         cls.client.close()
 
+    def _post_step1(self, data, timeout=5, retries=5, delay=0.5):
+        last_exc = None
+        for _ in range(retries):
+            try:
+                return requests.post(
+                    f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
+                    data=data,
+                    timeout=timeout,
+                )
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+                last_exc = exc
+                time.sleep(delay)
+        raise last_exc
+
     def test_two_step_process_local(self):
         # Step 1: HTTP request (returns 200 on success)
-        response = requests.post(
-            f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-            data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
-            timeout=5,
+        response = self._post_step1(
+            {'app': 'test_service_local', 'access_key': 'test_secret_http'}
         )
         self.assertEqual(response.status_code, 200)
 
@@ -90,10 +102,8 @@ class TestServer(unittest.TestCase):
 
     def test_two_step_process_nonlocal(self):
         # Step 1: HTTP request (returns 200 on success)
-        response = requests.post(
-            f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-            data={'app': 'test_service_nonlocal', 'access_key': 'test_secret_http'},
-            timeout=5,
+        response = self._post_step1(
+            {'app': 'test_service_nonlocal', 'access_key': 'test_secret_http'}
         )
         self.assertEqual(response.status_code, 200)
 
@@ -136,10 +146,8 @@ class TestServer(unittest.TestCase):
 
     def test_session_expiration(self):
         # Perform the two-step process
-        response = requests.post(
-            f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-            data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
-            timeout=5,
+        response = self._post_step1(
+            {'app': 'test_service_local', 'access_key': 'test_secret_http'}
         )
         self.assertEqual(response.status_code, 200)
 
@@ -183,13 +191,11 @@ class TestServer(unittest.TestCase):
             requests.get(f'http://localhost:{self.test_service_nonlocal_port}', timeout=1)
 
     def test_invalid_access_key(self):
-        # HTTP request with invalid key should be rejected with 503
-        response = requests.post(
-            f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-            data={'app': 'test_service_local', 'access_key': 'invalidkey'},
-            timeout=5,
+        # HTTP request with invalid key should be rejected with 403
+        response = self._post_step1(
+            {'app': 'test_service_local', 'access_key': 'invalidkey'}
         )
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 403)
 
         time.sleep(1)
         # Verify that the HTTPS port is not accessible
@@ -204,13 +210,11 @@ class TestServer(unittest.TestCase):
             requests.get(f'http://localhost:{self.test_service_local_port}', timeout=1)
 
     def test_invalid_app_name(self):
-        # HTTP request with invalid app name should be rejected with 503
-        response = requests.post(
-            f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-            data={'app': 'invalidapp', 'access_key': 'test_secret_http'},
-            timeout=5,
+        # HTTP request with invalid app name should be rejected with 403
+        response = self._post_step1(
+            {'app': 'invalidapp', 'access_key': 'test_secret_http'}
         )
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 403)
 
         time.sleep(1)
         # Verify that the HTTPS port is not accessible
@@ -226,11 +230,7 @@ class TestServer(unittest.TestCase):
 
     def test_missing_data(self):
         # HTTP request with missing data should fail validation with 400
-        response = requests.post(
-            f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-            data={},
-            timeout=5,
-        )
+        response = self._post_step1({}, timeout=5)
         self.assertEqual(response.status_code, 400)
 
         time.sleep(1)
@@ -263,20 +263,15 @@ class TestServer(unittest.TestCase):
     def test_connection_timeout_post(self):
         # POST without credentials should fail quickly with 400
         start_time = time.time()
-        response = requests.post(
-            f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-            timeout=5,
-        )
+        response = self._post_step1({}, timeout=5)
         duration = time.time() - start_time
         self.assertEqual(response.status_code, 400)
         self.assertLess(duration, 2)
 
     def test_valid_http_invalid_https_app_name(self):
         # Valid HTTP request should return 200
-        response = requests.post(
-            f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-            data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
-            timeout=5,
+        response = self._post_step1(
+            {'app': 'test_service_local', 'access_key': 'test_secret_http'}
         )
         self.assertEqual(response.status_code, 200)
 
@@ -286,7 +281,7 @@ class TestServer(unittest.TestCase):
                                  data={'app': 'invalid_app', 'access_key': 'test_secret_https'},
                                  verify=False,
                                  timeout=5)
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 403)
 
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
@@ -295,10 +290,8 @@ class TestServer(unittest.TestCase):
 
     def test_valid_http_invalid_https_access_key(self):
         # Valid HTTP request should return 200
-        response = requests.post(
-            f'http://localhost:{self.http_port}{self.config["global"]["http_post_path"]}',
-            data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
-            timeout=5,
+        response = self._post_step1(
+            {'app': 'test_service_local', 'access_key': 'test_secret_http'}
         )
         self.assertEqual(response.status_code, 200)
 
@@ -308,7 +301,7 @@ class TestServer(unittest.TestCase):
                                  data={'app': 'test_service_local', 'access_key': 'invalid_key'},
                                  verify=False,
                                  timeout=5)
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 403)
 
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):

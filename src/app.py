@@ -31,12 +31,12 @@ def _validate_ip(value: str, source: str):
     candidate = value.strip() if value else value
     if not candidate:
         log_err(f"{source} missing")
-        abort(503)
+        abort(403)
     try:
         return ipaddress.ip_address(candidate)
     except ValueError:
         log_err(f"Invalid {source} '{value}'")
-        abort(503)
+        abort(403)
 
 def get_client_ip():
     # Resolve the originating client IP
@@ -48,7 +48,7 @@ def get_client_ip():
 
     if not any(remote_ip in network for network in trusted_waf_networks):
         log_err(f"Rejecting request from untrusted WAF address '{remote_ip}' while --waf-trusted-ips is configured")
-        abort(503)
+        abort(403)
 
     x_real_ip = request.headers.get('X-Real-IP', '')
     if x_real_ip.strip():
@@ -62,7 +62,7 @@ def get_client_ip():
             return str(_validate_ip(candidate, "X-Forwarded-For header"))
 
     log_err("Trusted WAF request missing client IP headers (X-Real-IP/X-Forwarded-For)")
-    abort(503)
+    abort(403)
 
 def cleanup_token_cache():
     # Remove tokens older than TOKEN_CACHE_WINDOW seconds
@@ -123,7 +123,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     for used_token, _ in token_cache[access_key]:
                         if used_token == token:
                             log_err(f"Token '{token}' reuse attempt for access key: {access_key}")
-                            abort(503)
+                            abort(403)
 
                     # Load 2FA configuration
                     with open(tfa_config_file) as f:
@@ -133,13 +133,13 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     totp = pyotp.TOTP(tfa_config['secret'], interval=tfa_config.get('interval', 30))
                     if not totp.verify(token):
                         log_err(f"Invalid 2FA token '{token}' for access key: {access_key}")
-                        abort(503)
+                        abort(403)
 
                     # Store valid token in cache
                     token_cache[access_key].append((token, time.time()))
                 else:
                     log_err(f"2FA token required but not provided for access key: {access_key}")
-                    abort(503)
+                    abort(403)
 
         interface_ext = config[app_name].get('interface_ext', config['global']['interface_ext'])
         interface_int = config[app_name].get('interface_int', config['global']['interface_int'])
@@ -217,7 +217,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     os.fsync(f.fileno())
     else:
         log_err(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
-        abort(503)
+        abort(403)
     return 'OK', 200
 
 def create_app(config_path, session_file, args):
@@ -274,8 +274,8 @@ def create_app(config_path, session_file, args):
 
     @app.errorhandler(500)
     def handle_500(error):
-        log("Server Error 500")
-        abort(503)
+        log("Internal Server Error 500")
+        return "Internal Server Error", 500
 
     app.config['sessions'] = sessions
     return app
