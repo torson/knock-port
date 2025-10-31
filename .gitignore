@@ -9,6 +9,9 @@ var/knockport-freeze-restart.sh
 tests/config.test.yaml
 .env
 src/__pycache__
+tests/__pycache__/
 tests/*.key
 tests/*.pem
 nohup.out
+
+.specstory/
