@@ -1,6 +1,9 @@
 
 global:
-  http_post_path: /1-SECRET    # limited to 10 characters due to nftables firewall limits, set custom value case-sensitive ([a-zA-Z0-9] - that's 62^10 combinations = 8,4*10^17 - that's almost a billion billions - enough), don't leave it default
+  # limited to '/' + 10 characters due to nftables firewall limits, set custom value case-sensitive ([a-zA-Z0-9] - that's 62^10 combinations = 8,4*10^17 - that's almost a billion billions - enough), don't leave it default
+  # stick to URL-safe characters (letters, digits, -, _, ....) and avoid characters like ', <, spaces, or percent-encoding quirks.
+  # Because nftables only lets you compare up to 16 bytes in one shot, and "POST " already consumes 5 bytes, you have at most 11 payload bytes left.
+  http_post_path: /1-SECRET
   https_post_path: /2-SECRET   # set custom value (not length limited), don't leave it default
   step1_2_rate_limit_per_minute: 5
   interface_ext: eth0
