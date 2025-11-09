@@ -66,9 +66,9 @@ class TestServer(unittest.TestCase):
         time.sleep(1)
         # Step 2: HTTPS request
         response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                                 data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
-                                 verify=False,  # Disable SSL verification for testing
-                                 timeout=5)
+                                    data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
+                                    verify=False,  # Disable SSL verification for testing
+                                    timeout=5)
         self.assertEqual(response.status_code, 200)  # Expecting 200 as per the server logic
 
         # Check the cache/sessions.json file inside the container
@@ -110,9 +110,9 @@ class TestServer(unittest.TestCase):
         time.sleep(1)
         # Step 2: HTTPS request
         response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                                 data={'app': 'test_service_nonlocal', 'access_key': 'test_secret_https'},
-                                 verify=False,  # Disable SSL verification for testing
-                                 timeout=5)
+                                    data={'app': 'test_service_nonlocal', 'access_key': 'test_secret_https'},
+                                    verify=False,  # Disable SSL verification for testing
+                                    timeout=5)
         self.assertEqual(response.status_code, 200)  # Expecting 200 as per the server logic
 
         # Check the cache/sessions.json file inside the container
@@ -153,9 +153,9 @@ class TestServer(unittest.TestCase):
 
         time.sleep(1)
         requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                      data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
-                      verify=False,
-                      timeout=5)
+                        data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
+                        verify=False,
+                        timeout=5)
 
         # Wait for the session to expire
         with open('tests/config.test.yaml', 'r') as config_file:
@@ -201,9 +201,9 @@ class TestServer(unittest.TestCase):
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                          data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
-                          verify=False,
-                          timeout=1)
+                            data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
+                            verify=False,
+                            timeout=1)
 
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
@@ -220,9 +220,9 @@ class TestServer(unittest.TestCase):
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                          data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
-                          verify=False,
-                          timeout=1)
+                            data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
+                            verify=False,
+                            timeout=1)
 
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
@@ -237,9 +237,9 @@ class TestServer(unittest.TestCase):
         # Verify that the HTTPS port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
             requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                          data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
-                          verify=False,
-                          timeout=1)
+                            data={'app': 'test_service_local', 'access_key': 'test_secret_https'},
+                            verify=False,
+                            timeout=1)
 
         # Verify that the service port is not accessible
         with self.assertRaises((requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
@@ -278,9 +278,9 @@ class TestServer(unittest.TestCase):
         time.sleep(1)
         # Invalid HTTPS request (invalid app_name)
         response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                                 data={'app': 'invalid_app', 'access_key': 'test_secret_https'},
-                                 verify=False,
-                                 timeout=5)
+                                    data={'app': 'invalid_app', 'access_key': 'test_secret_https'},
+                                    verify=False,
+                                    timeout=5)
         self.assertEqual(response.status_code, 403)
 
         # Verify that the service port is not accessible
@@ -298,9 +298,9 @@ class TestServer(unittest.TestCase):
         time.sleep(1)
         # Invalid HTTPS request (invalid access_key)
         response = requests.post(f'https://localhost:{self.https_port}{self.config["global"]["https_post_path"]}',
-                                 data={'app': 'test_service_local', 'access_key': 'invalid_key'},
-                                 verify=False,
-                                 timeout=5)
+                                    data={'app': 'test_service_local', 'access_key': 'invalid_key'},
+                                    verify=False,
+                                    timeout=5)
         self.assertEqual(response.status_code, 403)
 
         # Verify that the service port is not accessible
@@ -309,23 +309,31 @@ class TestServer(unittest.TestCase):
         time.sleep(5)
 
     def test_firewall_blocking_invalid_http_request(self):
-        # Send an HTTP POST request with an invalid path
-        invalid_path = "/invalid-path"
-        with self.assertRaises(requests.exceptions.Timeout):
-            requests.post(f'http://localhost:{self.http_port}{invalid_path}',
-                          data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
-                          timeout=1)
+        # Send an HTTP POST request with an invalid paths
+        # invalid with: less that 10 charactes , exactly 10 charactes , more than 10 characters
+        invalid_paths = [
+            "/invalid_9",
+            "/invalid_10",
+            "/invalid__11"
+        ]
+        for invalid_path in invalid_paths:
+            with self.assertRaises(requests.exceptions.Timeout):
+                requests.post(
+                    f'http://localhost:{self.http_port}{invalid_path}',
+                    data={'app': 'test_service_local', 'access_key': 'test_secret_http'},
+                    timeout=1,
+                )
 
         # Parse the log files to check if the invalid path request was blocked
         log_files = glob.glob('tests/run_docker_tests.server.*.log')
-        invalid_path_found = False
-        for log_file in log_files:
-            with open(log_file, 'r') as f:
-                if f'POST {invalid_path}' in f.read():
-                    invalid_path_found = True
-                    break
-
-        self.assertFalse(invalid_path_found, f"The invalid path '{invalid_path}' was not blocked by the firewall")
+        for invalid_path in invalid_paths:
+            for log_file in log_files:
+                with open(log_file, 'r') as f:
+                    self.assertNotIn(
+                        f'POST {invalid_path}',
+                        f.read(),
+                        f"The invalid path '{invalid_path}' was not blocked by the firewall",
+                    )
 
 if __name__ == "__main__":
     unittest.main()
