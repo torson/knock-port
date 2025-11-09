@@ -151,14 +151,14 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_IPTABLES}"  = "true" ]]; then
         'python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type iptables --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knockport.testing.pem --key tests/knockport.testing.key > tests/run_docker_tests.server.iptables.log 2>&1 &'
     sleep 3
 
-    # curl -m 1 -d 'app=test_service_local&access_key=test_secret_http' http://localhost:8080/step-1
+    # curl -m 1 -d 'app=test_service_local&access_key=test_secret_http' http://localhost:8080/12345
     # # with 2FA token
-    # curl -m 1 -d 'app=test_service_local&access_key=test_secret_http&token=' http://localhost:8080/step-1
-    # curl -m 1 -d 'app=test_service_local&access_key=test_secret_https' https://localhost:8443/step-2 -k
+    # curl -m 1 -d 'app=test_service_local&access_key=test_secret_http&token=' http://localhost:8080/12345
+    # curl -m 1 -d 'app=test_service_local&access_key=test_secret_https' https://localhost:8443/67890 -k
     # curl -m 1 http://localhost:1194/
 
-    # curl -m 1 -d 'app=test_service_nonlocal&access_key=test_secret_http' http://localhost:8080/step-1
-    # curl -m 1 -d 'app=test_service_nonlocal&access_key=test_secret_https' https://localhost:8443/step-2 -k
+    # curl -m 1 -d 'app=test_service_nonlocal&access_key=test_secret_http' http://localhost:8080/12345
+    # curl -m 1 -d 'app=test_service_nonlocal&access_key=test_secret_https' https://localhost:8443/67890 -k
     # curl -m 1 http://localhost:1294/
 
 
