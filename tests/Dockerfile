@@ -2,7 +2,7 @@ FROM python:3.9.19-slim
 
 RUN apt-get update && \
     echo "install system network utils" && \
-    apt-get -y install iputils-ping net-tools telnet iproute2 procps dnsutils && \
+    apt-get -y install iputils-ping net-tools telnet iproute2 procps dnsutils tcpdump && \
     echo "install system utils" && \
     apt-get -y install procps sudo nginx
     # apt-get clean && \
