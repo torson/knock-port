@@ -16,8 +16,8 @@ It supports iptables, nftables and VyOS specific nftables.
 It uses a configuration file to define app names, their corresponding ports, access keys, duration for which the port should remain open and so on. Example:
 ```yaml
 global:
-  http_post_path: /1-SECRET   # limited to 10 characters unfortunately due to nftables firewall limits , set custom value, don't leave it default
-  https_post_path: /2-SECRET  # set custom value (not length limited), don't leave it default
+  http_post_path: /SECRET-1   # limited to 10 characters unfortunately due to nftables firewall limits , set custom value, don't leave it default
+  https_post_path: /SECRET-2  # set custom value (not length limited), don't leave it default
   step1_2_rate_limit_per_minute: 5
   interface_ext: eth0
   interface_int: eth0  # used in case of non-local service and router using 2 separate interfaces

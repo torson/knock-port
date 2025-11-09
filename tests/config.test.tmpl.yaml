@@ -1,12 +1,12 @@
 
 global:
-  http_post_path: /step-1
-  https_post_path: /step-2
+  http_post_path: /12345
+  https_post_path: /67890
   step1_2_rate_limit_per_minute: 120
   interface_ext: eth0
   interface_int: eth0  # used in case of non-local service
   2fa_config_folder: config/2fa
-  healthcheck_app_name: healthcheck # app name for healthcheck
+  healthcheck_app_name: healthcheck   # reduces logs for this specific app name
 
 test_service_local:
   port: 1194

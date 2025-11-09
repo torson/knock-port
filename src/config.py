@@ -114,8 +114,8 @@ def load_config(config_path):
 
     # Validate http_post_path and https_post_path
     post_paths = [
-        ('http_post_path', '/1-SECRET'),
-        ('https_post_path', '/2-SECRET')
+        ('http_post_path', '/SECRET-1'),
+        ('https_post_path', '/SECRET-2')
     ]
     allowed_http_path_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~")
     for field_name, default_value in post_paths:
