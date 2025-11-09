@@ -7,12 +7,34 @@ def load_config(config_path):
     with open(config_path, 'r') as config_file:
         config = yaml.safe_load(config_file)
     # config validation
-    if config['global']['http_post_path'] == "/1-SECRET":
-        log("Error: config global.http_post_path must not be default value '/1-SECRET'")
-        sys.exit(1)
-    if config['global']['https_post_path'] == "/2-SECRET":
-        log("Error: config global.https_post_path must not be default value '/2-SECRET'")
-        sys.exit(1)
+    post_paths = [
+        ('http_post_path', '/1-SECRET'),
+        ('https_post_path', '/2-SECRET')
+    ]
+    allowed_http_path_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~")
+    for field_name, default_value in post_paths:
+        post_path = config['global'][field_name]
+        if post_path == default_value:
+            log(f"Error: config global.{field_name} must not be default value '{default_value}'")
+            sys.exit(1)
+        try:
+            post_path_bytes = post_path.encode("ascii")
+        except UnicodeEncodeError:
+            log(f"Error: config global.{field_name} must contain only ASCII characters")
+            sys.exit(1)
+        if not post_path.startswith("/"):
+            log(f"Error: config global.{field_name} must start with '/'")
+            sys.exit(1)
+        if len(post_path_bytes) < 2:
+            log(f"Error: config global.{field_name} must include at least one character after '/'")
+            sys.exit(1)
+        if len(post_path_bytes) > 11:
+            log(f"Error: config global.{field_name} total length (including leading '/') must not exceed 11 ASCII characters due to firewall limits")
+            sys.exit(1)
+        disallowed_chars = set(post_path[1:]) - allowed_http_path_chars
+        if disallowed_chars:
+            log(f"Error: config global.{field_name} contains unsupported characters {sorted(disallowed_chars)}; allowed characters are [A-Za-z0-9-_.~]")
+            sys.exit(1)
     return config
 
 def check_config_destinations_nonlocal(config):
@@ -110,4 +132,3 @@ def init_vars(args, config):
             # chain INPUT is used on Debian so we set it as default
             args.nftables_chain_default_postrouting = "POSTROUTING"
         log(f"nftables_chain_default_postrouting = {args.nftables_chain_default_postrouting}")
-
