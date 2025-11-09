@@ -19,7 +19,7 @@ alwaysApply: true
    If you create any temporary new files, scripts, or helper files for iteration, clean up these files by removing them at the end of the task.
 
 5. **Python virtual environment**
-   When running any Python script/app first check if `mamba` command exists. If it does don't set PIP_BREAK_SYSTEM_PACKAGES=1 before execution. Instead activate the Mamba virtual environment with `mamba activate knockport` - run this before running python directly or any bash script that is running python - for example `tests/run_docker_tests.sh`.
+   When running any Python script/app first load ~/.bashrc and check if `mamba` command exists. If it does don't set PIP_BREAK_SYSTEM_PACKAGES=1 before execution. Instead activate the Mamba virtual environment with `source ~/.bashrc && mamba activate knockport` - run this before running python directly or any bash script that is running python - for example `tests/run_docker_tests.sh`.
 
 6. **Running tests**
    Run tests with `tests/run_docker_tests.sh` . For running tests for specific firewall type (iptables, nftables, vyos) set individual envvars to true before running : RUN_TESTS_ROUTING_TYPE_IPTABLES=true , RUN_TESTS_ROUTING_TYPE_NFTABLES=true , RUN_TESTS_ROUTING_TYPE_VYOS=true . By default all 3 types are tested, but if you make a code change for specific firewall type (iptables let's say), then set the envvar for that type : `RUN_TESTS_ROUTING_TYPE_IPTABLES=true tests/run_docker_tests.sh`.
