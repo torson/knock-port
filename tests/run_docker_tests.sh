@@ -446,7 +446,6 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
     log "Starting KnockPort"
     log docker exec -u root port-knock-server vbash -c \
         'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knockport.testing.pem --key tests/knockport.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
-
     docker exec -u root port-knock-server vbash -c \
         'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knockport.testing.pem --key tests/knockport.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
     # app init takes a bit longer on clean vyos as it creates firewall rules using the 'set' commands which are slow
@@ -457,8 +456,35 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
 
     ###
     log "Running tests again with user knockport and --use-sudo argument"
-    docker exec -u root port-knock-server bash -c 'pkill -f main.py' || true
-    sleep 5
+    log "Stopping KnockPort container and starting it again"
+        run_command docker stop -t 1 port-knock-server
+        sleep 5
+
+        run_command docker run --rm -d --privileged -v ${BASE_DIR_PATH}:/app -v /lib/modules:/lib/modules -p ${KNOCKPORT_PORT_HTTP}:${KNOCKPORT_PORT_HTTP} -p ${KNOCKPORT_PORT_HTTPS}:${KNOCKPORT_PORT_HTTPS} -p ${TEST_SERVICE_PORT_LOCAL}:${TEST_SERVICE_PORT_LOCAL} -p ${TEST_SERVICE_PORT_NONLOCAL}:${TEST_SERVICE_PORT_NONLOCAL} --name port-knock-server vyos:${VYOS_ROLLING_VERSION}-extras /sbin/init
+        log "Sleeping 60s as VyOs takes a few seconds to initialize"
+        sleep 60
+
+        log "preparing VyOS"
+
+        docker exec -u vyos port-knock-server vbash -c '
+                source /opt/vyatta/etc/functions/script-template
+                configure
+                echo "Set up DNS"
+                HOSTNAME=$(hostname)
+                set system static-host-mapping host-name $HOSTNAME inet 127.0.0.1
+                commit
+                set system name-server 8.8.8.8
+                set service dns forwarding listen-address 127.0.0.1
+                set service dns forwarding allow-from 0.0.0.0/0
+                set system login user knockport authentication plaintext-password knockport
+                commit
+                exit
+            '
+
+        docker exec -u knockport port-knock-server bash -c '
+                echo "Start testing web server for testing the service port"
+                ~/venv/bin/python -m http.server '${TEST_SERVICE_PORT_LOCAL}' > tests/run_docker_tests.http-server.vyos.log 2>&1 &
+            '
 
     log "Initializing firewall because we're later running KnockPort with --use-sudo so it doesn't have permission to run 'sudo -u vyos vbash'"
     docker exec -u vyos port-knock-server vbash -c '
