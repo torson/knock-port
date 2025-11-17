@@ -85,7 +85,7 @@ def execute_command(command, print_command=True, print_output=True, use_sudo=Fal
             command = command.replace('nftables', '/usr/sbin/nftables')
         command_args = shlex.split(command)
         if use_sudo:
-            out=str(sudo(*command_args, _tty_out=True)).strip()
+            out=str(sudo(*command_args, _tty_out=False)).strip()
         else:
             out=str(bash('-c', command)).strip()
 
