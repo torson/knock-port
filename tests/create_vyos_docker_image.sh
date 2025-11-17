@@ -22,7 +22,7 @@ if [ ! -f vyos-${VYOS_ROLLING_VERSION}${VYOS_ISO_NAME_SUFFIX}.iso ]; then
     wget https://github.com/vyos/vyos-nightly-build/releases/download/${VYOS_ROLLING_VERSION}/vyos-${VYOS_ROLLING_VERSION}${VYOS_ISO_NAME_SUFFIX}.iso
 fi
 mkdir -p vyos-docker ; cd vyos-docker
-ln -s ../vyos-${VYOS_ROLLING_VERSION}${VYOS_ISO_NAME_SUFFIX}.iso vyos-${VYOS_ROLLING_VERSION}${VYOS_ISO_NAME_SUFFIX}.iso
+ln -f -s ../vyos-${VYOS_ROLLING_VERSION}${VYOS_ISO_NAME_SUFFIX}.iso vyos-${VYOS_ROLLING_VERSION}${VYOS_ISO_NAME_SUFFIX}.iso
 
 mkdir -p rootfs
 sudo mount -o loop vyos-${VYOS_ROLLING_VERSION}${VYOS_ISO_NAME_SUFFIX}.iso rootfs
