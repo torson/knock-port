@@ -1,0 +1,55 @@
+# /etc/systemd/system/knockport.service
+
+### instructions to set up
+# cp var/knockport.service.dist var/knockport.service
+# Edit var/knockport.service to configure User and ExecStart based on your setup
+# cp var/knockport.service /etc/systemd/system/knockport.service
+# systemctl daemon-reload
+# # service needs to be disabled because we're using a timer (knockport.timer) to do a delayed start on boot
+# systemctl disable knockport.service
+# systemctl start knockport.service
+# systemctl status knockport.service
+# journalctl -u knockport.service
+# journalctl -fu knockport.service
+
+[Unit]
+Description=Port knocking service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+## Configuration for non-root user (recommended)
+# we are setting user/group to root because ExecStartPre
+User=root
+Group=root
+WorkingDirectory=/home/knockport/knock-port
+# python -m venv ~/python-knockport
+# first run it as root to initialize nftables and stop it after 5s
+ExecStartPre=/bin/bash -c "/home/knockport/python-knockport/bin/pip install -r requirements.txt >> /var/log/knockport.ExecStartPre.log 2>&1 ; timeout 5 /home/knockport/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type vyos --http-port 8080 --https-port 8443 --cert tests/knockport.testing.pem --key tests/knockport.testing.key >> /var/log/knockport.ExecStartPre.log 2>&1 ; true" 
+# Non-root user with --use-sudo (recommended)
+ExecStart=/bin/bash -c "exec sudo -u knockport /home/knockport/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type vyos --http-port 8080 --https-port 8443 --cert tests/knockport.testing.pem --key tests/knockport.testing.key --use-sudo >> /var/log/knockport.log 2>&1"
+Environment="PATH=/home/knockport/python-knockport/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Configuration for root user (alternative)
+# User=root
+# Group=root
+# WorkingDirectory=/app
+# ExecStartPre=/root/python-knockport/bin/pip install -r requirements.txt
+# ExecStart=/root/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80 --https-port 443 --cert tests/knockport.testing.pem --key tests/knockport.testing.key
+# Environment="PATH=/root/python-knockport/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+Restart=always
+
+## alternatively output to a logfile
+# StandardOutput=append:/var/log/knockport.log
+## stderr also to logfile
+# StandardError=append:/var/log/knockport.log
+## .. or to systemd journal
+# StandardError=inherit
+
+TimeoutStopSec=5s
+
+[Install]
+WantedBy=multi-user.target
