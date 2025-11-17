@@ -23,6 +23,7 @@ def parse_args():
     parser.add_argument('--waf-https-port', type=int, help='(WAF needs to be on the same host, can also be inside a docker container) Set the firewall rules for HTTPS port of WAF/web-server that is forwarding traffic to KnockPort')
     parser.add_argument('--waf-trusted-ips', type=str, help='Comma-separated list of trusted WAF IP addresses or CIDR ranges allowed to supply client IP headers')
     parser.add_argument('--use-sudo', action='store_true', default=False, help='Prefix all firewall commands with sudo (add something like "knockport ALL=NOPASSWD: /usr/sbin/nft *" in /etc/sudoers.d/knockport)')
+    parser.add_argument('--vyos-prepare-nft-tables-only', action='store_true', default=False, help='Exit after creating nft tables (used for VyOS initialization as root before running as non-root user)')
     
     args = parser.parse_args()
 

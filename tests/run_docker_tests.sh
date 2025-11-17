@@ -482,43 +482,51 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
             '
 
         docker exec -u knockport port-knock-server bash -c '
+                cd /app
                 echo "Start testing web server for testing the service port"
                 ~/venv/bin/python -m http.server '${TEST_SERVICE_PORT_LOCAL}' > tests/run_docker_tests.http-server.vyos.log 2>&1 &
             '
 
-    log "Initializing firewall because we're later running KnockPort with --use-sudo so it doesn't have permission to run 'sudo -u vyos vbash'"
-    docker exec -u vyos port-knock-server vbash -c '
-            source /opt/vyatta/etc/functions/script-template
-            configure
-            echo "Initialize NAT table"
-                set nat destination rule 101 description 'blank-DNAT-rule'
-                set nat destination rule 101 destination port '65535'
-                set nat destination rule 101 inbound-interface name 'eth0'
-                set nat destination rule 101 protocol 'tcp'
-                set nat destination rule 101 translation address '10.255.255.254'
-                set nat destination rule 101 translation port '65535'
-                commit
-                del nat destination rule 101
-                commit
-            echo "Initialize filter chains"
-                echo "Create chain IN-KnockPort with default continue rule"
-                set firewall ipv4 name IN-KnockPort default-action continue
-                set firewall ipv4 input filter rule 9999 action jump
-                set firewall ipv4 input filter rule 9999 jump-target IN-KnockPort
-                echo "Create chain FWD-KnockPort with default continue rule"
-                set firewall ipv4 name FWD-KnockPort default-action continue
-                set firewall ipv4 forward filter rule 9999 action jump
-                set firewall ipv4 forward filter rule 9999 jump-target FWD-KnockPort
-                commit
-            exit
-        '
+    ## this is now done with --vyos-prepare-nft-tables-only
+    # log "Initializing firewall because we're later running KnockPort with --use-sudo so it doesn't have permission to run 'sudo -u vyos vbash'"
+    # docker exec -u vyos port-knock-server vbash -c '
+    #         source /opt/vyatta/etc/functions/script-template
+    #         configure
+    #         echo "Initialize NAT table"
+    #             set nat destination rule 101 description 'blank-DNAT-rule'
+    #             set nat destination rule 101 destination port '65535'
+    #             set nat destination rule 101 inbound-interface name 'eth0'
+    #             set nat destination rule 101 protocol 'tcp'
+    #             set nat destination rule 101 translation address '10.255.255.254'
+    #             set nat destination rule 101 translation port '65535'
+    #             commit
+    #             del nat destination rule 101
+    #             commit
+    #         echo "Initialize filter chains"
+    #             echo "Create chain IN-KnockPort with default continue rule"
+    #             set firewall ipv4 name IN-KnockPort default-action continue
+    #             set firewall ipv4 input filter rule 9999 action jump
+    #             set firewall ipv4 input filter rule 9999 jump-target IN-KnockPort
+    #             echo "Create chain FWD-KnockPort with default continue rule"
+    #             set firewall ipv4 name FWD-KnockPort default-action continue
+    #             set firewall ipv4 forward filter rule 9999 action jump
+    #             set firewall ipv4 forward filter rule 9999 jump-target FWD-KnockPort
+    #             commit
+    #         exit
+    #     '
 
-    log "Starting KnockPort"
+    log "Starting KnockPort with --vyos-prepare-nft-tables-only argument to just initialize nftables tables"
+    log docker exec -u root port-knock-server vbash -c \
+        'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --vyos-prepare-nft-tables-only > tests/run_docker_tests.server.vyos.log 2>&1'
+    docker exec -u root port-knock-server vbash -c \
+        'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --vyos-prepare-nft-tables-only > tests/run_docker_tests.server.vyos.log 2>&1'
+
+    log "Starting KnockPort under knockport user and with --use-sudo argument"
     log docker exec -u knockport port-knock-server vbash -c \
-        'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knockport.testing.pem --key tests/knockport.testing.key --use-sudo > tests/run_docker_tests.server.vyos.log 2>&1 &'
-
+        'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knockport.testing.pem --key tests/knockport.testing.key --use-sudo >> tests/run_docker_tests.server.vyos.log 2>&1 &'
     docker exec -u knockport port-knock-server vbash -c \
-        'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knockport.testing.pem --key tests/knockport.testing.key --use-sudo > tests/run_docker_tests.server.vyos.log 2>&1 &'
+        'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knockport.testing.pem --key tests/knockport.testing.key --use-sudo >> tests/run_docker_tests.server.vyos.log 2>&1 &'
+
     # app init takes a bit longer on clean vyos as it creates firewall rules using the 'set' commands which are slow
     sleep 15
 

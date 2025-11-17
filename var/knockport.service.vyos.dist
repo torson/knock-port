@@ -26,8 +26,8 @@ User=root
 Group=root
 WorkingDirectory=/home/knockport/knock-port
 # python -m venv ~/python-knockport
-# first run it as root to initialize nftables and stop it after 5s
-ExecStartPre=/bin/bash -c "/home/knockport/python-knockport/bin/pip install -r requirements.txt >> /var/log/knockport.ExecStartPre.log 2>&1 ; timeout 5 /home/knockport/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type vyos --http-port 8080 --https-port 8443 --cert tests/knockport.testing.pem --key tests/knockport.testing.key >> /var/log/knockport.ExecStartPre.log 2>&1 ; true" 
+# first run it as root to initialize nftables tables, then exit
+ExecStartPre=/bin/bash -c "/home/knockport/python-knockport/bin/pip install -r requirements.txt >> /var/log/knockport.ExecStartPre.log 2>&1 ; /home/knockport/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type vyos --http-port 8080 --https-port 8443 --cert tests/knockport.testing.pem --key tests/knockport.testing.key --vyos-prepare-nft-tables-only >> /var/log/knockport.ExecStartPre.log 2>&1" 
 # Non-root user with --use-sudo (recommended)
 ExecStart=/bin/bash -c "exec sudo -u knockport /home/knockport/python-knockport/bin/python src/main.py -c config/config.yaml --firewall-type vyos --http-port 8080 --https-port 8443 --cert tests/knockport.testing.pem --key tests/knockport.testing.key --use-sudo >> /var/log/knockport.log 2>&1"
 Environment="PATH=/home/knockport/python-knockport/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"

@@ -50,6 +50,11 @@ if __name__ == '__main__':
     # Set up firewall rules for stealthy HTTP/HTTPS server
     firewall_commands = setup_stealthy_ports(app.config['config'], args, app)
 
+    # Exit early if only preparing nft tables (used for VyOS initialization)
+    if args.vyos_prepare_nft_tables_only:
+        log("nft tables prepared, exiting as requested by --vyos-prepare-nft-tables-only")
+        raise SystemExit(0)
+
     log(f"HTTP Server is starting on 0.0.0.0:{args.http_port}...")
     log(f"HTTPS Server is starting on 0.0.0.0:{args.https_port}...")
 
