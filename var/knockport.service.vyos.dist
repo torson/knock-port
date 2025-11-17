@@ -1,6 +1,14 @@
 # /etc/systemd/system/knockport.service
 
 ### instructions to set up
+
+## (optional, more secure) create knockport user
+#  configure
+#  set system login user knockport authentication plaintext-password _PASSWORD_
+#  commit
+#  save
+
+## set up systemd service
 # cp var/knockport.service.dist var/knockport.service
 # Edit var/knockport.service to configure User and ExecStart based on your setup
 # cp var/knockport.service /etc/systemd/system/knockport.service
