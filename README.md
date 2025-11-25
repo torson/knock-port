@@ -65,7 +65,6 @@ curl -d 'app=app1&access_key=secret456_https' -m 1 -k https://knockport.example.
 ## Security Notes
 - 2FA is supported and recommended for compromised-client computer scenarios.
 - Consider placing a hardened reverse proxy / WAF (Nginx for example) in front if desired (set `--waf-http-port`, `--waf-https-port`).
-- HTTPS cannot be fully stealth due to TLS handshakes; keep the step 2 open window short.
 - Use `--firewall-type iptables` on systems that still default to iptables; modern distros translate iptables to nftables.
 
 ## Operating Tips
