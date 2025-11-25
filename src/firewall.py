@@ -208,7 +208,7 @@ def setup_stealthy_ports(config, args, app):
                     '
                 """)
                 if args.use_sudo:
-                    log("WARNING: You're running with --use-sudo, you need to manually run the following command to initialize the filter chain, since you're probably running under a limited-permission user that can't run 'sudo -u vyos vbash'")
+                    log("WARNING: You're running with --use-sudo but the nftables filter chain {args.nftables_chain_input} is missing. Either first run KnockPort with root user to initialize all needed tables or manually run the following command to initialize the filter table, since you're probably running under a limited-permission user that can't run 'sudo -u vyos vbash'")
                     log(command)
                     sys.exit(1)
                 else:
@@ -392,7 +392,7 @@ def apply_nat_rules(config, args):
                                 '
                             """)
                             if args.use_sudo:
-                                log("WARNING: You're running with --use-sudo, you need to manually run the following command to initialize the NAT chains, since you're probably running under a limited-permission user that can't run 'sudo -u vyos vbash'")
+                                log("WARNING: You're running with --use-sudo but the nftables NAT table is missing. Either first run KnockPort with root user to initialize all needed tables or manually run the following command to initialize the NAT tables, since you're probably running under a limited-permission user that can't run 'sudo -u vyos vbash'")
                                 log(command)
                                 sys.exit(1)
                             else:

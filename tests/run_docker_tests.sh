@@ -448,7 +448,7 @@ if [[ "${RUN_TESTS_ROUTING_TYPE_VYOS}"  = "true" ]]; then
         'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knockport.testing.pem --key tests/knockport.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
     docker exec -u root port-knock-server vbash -c \
         'cd /app && ~/venv/bin/python src/main.py --service-rule-cleanup-on-shutdown -c tests/config.test.yaml --firewall-type vyos --http-port '${KNOCKPORT_PORT_HTTP}' --https-port '${KNOCKPORT_PORT_HTTPS}' --cert tests/knockport.testing.pem --key tests/knockport.testing.key > tests/run_docker_tests.server.vyos.log 2>&1 &'
-    # app init takes a bit longer on clean vyos as it creates firewall rules using the 'set' commands which are slow
+    # app init takes a bit longer on clean vyos as it creates nftables tables using the 'set' commands which are slow
     sleep 15
 
     # Run the tests , needs to be run from repo root
