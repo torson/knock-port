@@ -30,15 +30,15 @@ def _validate_non_empty_string(value, field_name):
         log(f"Error: config {field_name} must not be empty")
         sys.exit(1)
 
-def _validate_access_key_list(access_keys, field_name):
+def _validate_access_secret_list(access_secrets, field_name):
     """Validate access key list"""
-    if not isinstance(access_keys, list):
+    if not isinstance(access_secrets, list):
         log(f"Error: config {field_name} must be a list")
         sys.exit(1)
-    if len(access_keys) == 0:
+    if len(access_secrets) == 0:
         log(f"Error: config {field_name} must contain at least one access key")
         sys.exit(1)
-    for i, key in enumerate(access_keys):
+    for i, key in enumerate(access_secrets):
         if not isinstance(key, str):
             log(f"Error: config {field_name}[{i}] must be a string")
             sys.exit(1)
@@ -190,17 +190,17 @@ def load_config(config_path):
             sys.exit(1)
         _validate_port(service_config['port'], f'{service_name}.port')
 
-        # Validate access_key_http
-        if 'access_key_http' not in service_config:
-            log(f"Error: config {service_name}.access_key_http is required")
+        # Validate access_secret_http
+        if 'access_secret_http' not in service_config:
+            log(f"Error: config {service_name}.access_secret_http is required")
             sys.exit(1)
-        _validate_access_key_list(service_config['access_key_http'], f'{service_name}.access_key_http')
+        _validate_access_secret_list(service_config['access_secret_http'], f'{service_name}.access_secret_http')
 
-        # Validate access_key_https
-        if 'access_key_https' not in service_config:
-            log(f"Error: config {service_name}.access_key_https is required")
+        # Validate access_secret_https
+        if 'access_secret_https' not in service_config:
+            log(f"Error: config {service_name}.access_secret_https is required")
             sys.exit(1)
-        _validate_access_key_list(service_config['access_key_https'], f'{service_name}.access_key_https')
+        _validate_access_secret_list(service_config['access_secret_https'], f'{service_name}.access_secret_https')
 
         # Validate destination
         if 'destination' not in service_config:

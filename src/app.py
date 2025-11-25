@@ -23,7 +23,7 @@ app = Flask(__name__)
 app.config['WTF_CSRF_ENABLED'] = False
 app.config.setdefault('trusted_waf_networks', [])
 
-# Token cache structure: {access_key: [(token, timestamp), ...]}
+# Token cache structure: {access_secret: [(token, timestamp), ...]}
 token_cache = defaultdict(list)
 TOKEN_CACHE_WINDOW = 60  # seconds
 
@@ -67,10 +67,10 @@ def get_client_ip():
 def cleanup_token_cache():
     # Remove tokens older than TOKEN_CACHE_WINDOW seconds
     current_time = time.time()
-    for access_key in token_cache:
-        token_cache[access_key] = [
+    for access_secret in token_cache:
+        token_cache[access_secret] = [
             (token, timestamp)
-            for token, timestamp in token_cache[access_key]
+            for token, timestamp in token_cache[access_secret]
             if current_time - timestamp < TOKEN_CACHE_WINDOW
         ]
 
@@ -85,10 +85,10 @@ from pathlib import Path
 
 class RequestForm(FlaskForm):
     app = StringField('app', validators=[DataRequired(), Length(min=1, max=50)])
-    access_key = StringField('access_key', validators=[DataRequired(), Length(min=10, max=50)])
+    access_secret = StringField('access_secret', validators=[DataRequired(), Length(min=10, max=50)])
     token = StringField('token', validators=[Optional(), Length(min=6, max=6)])
 
-def handle_request(config, sessions, lock, session_file, access_key_type, args):
+def handle_request(config, sessions, lock, session_file, access_secret_type, args):
     client_ip = get_client_ip()
     form = RequestForm(request.form)
     if not form.validate():
@@ -98,20 +98,20 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
         abort(400, 'Invalid data format received')
 
     app_name = form.app.data
-    access_key = form.access_key.data
+    access_secret = form.access_secret.data
 
     if app_name == config['global']['healthcheck_app_name']:
         # not logging healthcheck requests, though Flask still logs it
         return 'OK\n', 200
 
     log(f"Received {request.method} request from {client_ip} , data: {dict(request.form)}")
-    # log(f"Parsed form data - App: {app_name}, Access Key: {access_key}")
+    # log(f"Parsed form data - App: {app_name}, Access Key: {access_secret}")
 
-    if app_name in config and app_name != "global" and access_key in config[app_name][f'access_key_{access_key_type}']:
-        if access_key_type == "http":
+    if app_name in config and app_name != "global" and access_secret in config[app_name][f'access_secret_{access_secret_type}']:
+        if access_secret_type == "http":
             # For HTTP requests, verify 2FA token
             # Check if 2FA is configured for this access key
-            tfa_config_file = Path(f"{config['global']['2fa_config_folder']}/{access_key}.json")
+            tfa_config_file = Path(f"{config['global']['2fa_config_folder']}/{access_secret}.json")
             if tfa_config_file.exists():
                 if form.token:
                     token = form.token.data
@@ -120,9 +120,9 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     cleanup_token_cache()
                     # Check if token was recently used
                     # a valid token can be used only once to prevent an attacker repeating the same request from another IP
-                    for used_token, _ in token_cache[access_key]:
+                    for used_token, _ in token_cache[access_secret]:
                         if used_token == token:
-                            log_err(f"Token '{token}' reuse attempt for access key: {access_key}")
+                            log_err(f"Token '{token}' reuse attempt for access key: {access_secret}")
                             abort(403)
 
                     # Load 2FA configuration
@@ -132,19 +132,19 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     # Verify TOTP token with custom interval
                     totp = pyotp.TOTP(tfa_config['secret'], interval=tfa_config.get('interval', 30))
                     if not totp.verify(token):
-                        log_err(f"Invalid 2FA token '{token}' for access key: {access_key}")
+                        log_err(f"Invalid 2FA token '{token}' for access key: {access_secret}")
                         abort(403)
 
                     # Store valid token in cache
-                    token_cache[access_key].append((token, time.time()))
+                    token_cache[access_secret].append((token, time.time()))
                 else:
-                    log_err(f"2FA token required but not provided for access key: {access_key}")
+                    log_err(f"2FA token required but not provided for access key: {access_secret}")
                     abort(403)
 
         interface_ext = config[app_name].get('interface_ext', config['global']['interface_ext'])
         interface_int = config[app_name].get('interface_int', config['global']['interface_int'])
         port_to_open = config[app_name]['port']
-        if access_key_type == "http":
+        if access_secret_type == "http":
             if config[app_name]['step2_https_duration']:
                 duration = config[app_name]['step2_https_duration']
             else:
@@ -167,7 +167,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
             if config[app_name]['destination'] == "local":
                 commands.append(f"iptables -I INPUT -i {interface_ext} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}'")
             else:
-                if access_key_type == "http":
+                if access_secret_type == "http":
                     commands.append(f"iptables -I INPUT -i {interface_ext} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}'")
                 else:
                     commands.append(f"iptables -I FORWARD -o {interface_int} -p {protocol} -s {client_ip} --dport {port_to_open} -j ACCEPT -m comment --comment 'ipv4-FWD-KnockPort-{interface_int}-{app_name}-{protocol}-{port_to_open}-{client_ip}'")
@@ -178,7 +178,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
             if config[app_name]['destination'] == "local":
                 commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface_ext} counter accept comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'")
             else:
-                if access_key_type == "http":
+                if access_secret_type == "http":
                     commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_input} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} iifname {interface_ext} counter accept comment 'ipv4-IN-KnockPort-{interface_ext}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'")
                 else:
                     commands.append(f"nft insert rule ip {args.nftables_table_filter} {args.nftables_chain_forward} index 0 {protocol} dport {port_to_open} ip saddr {client_ip} oifname {interface_int} counter accept comment 'ipv4-FWD-KnockPort-{interface_int}-{app_name}-{protocol}-{port_to_open}-{client_ip}-accept'")
@@ -216,7 +216,7 @@ def handle_request(config, sessions, lock, session_file, access_key_type, args):
                     f.flush()
                     os.fsync(f.fileno())
     else:
-        log_err(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_key}")
+        log_err(f"Unauthorized access attempt or invalid app credentials for App: {app_name}, Access Key: {access_secret}")
         abort(403)
     return 'OK\n', 200
 

@@ -9,7 +9,7 @@ import json
 from qrcode.image.pure import PymagingImage
 from pathlib import Path
 
-def generate_2fa_config(access_key, interval):
+def generate_2fa_config(access_secret, interval):
     # Generate a random secret key
     secret = pyotp.random_base32()
 
@@ -17,7 +17,7 @@ def generate_2fa_config(access_key, interval):
 
     # Generate provisioning URI for QR code
     provisioning_uri = totp.provisioning_uri(
-        name=access_key,
+        name=access_secret,
         issuer_name="KnockPort"
     )
 
@@ -37,13 +37,13 @@ def generate_2fa_config(access_key, interval):
         "created_at": str(datetime.datetime.now())
     }
 
-    config_file = config_dir / f"{access_key}.json"
+    config_file = config_dir / f"{access_secret}.json"
     with open(config_file, "w") as f:
         json.dump(config, f, indent=4)
 
     # Save QR code image
     qr_img = qr.make_image(fill_color="black", back_color="white")
-    qr_img.save(config_dir / f"{access_key}_qr.png")
+    qr_img.save(config_dir / f"{access_secret}_qr.png")
 
     # Print ASCII QR code
     print("\n=== QR Code ===")
@@ -52,17 +52,17 @@ def generate_2fa_config(access_key, interval):
     print("1. Open Google Authenticator on your phone")
     print("2. Tap the '+' button")
     print("3. Choose 'Scan a QR code'")
-    print(f"4. Scan the QR code saved in: config/2fa/{access_key}_qr.png")
+    print(f"4. Scan the QR code saved in: config/2fa/{access_secret}_qr.png")
     print("\nAlternatively, you can manually enter this secret:")
     print(f"Secret: {secret}")
     print("\nConfiguration has been saved to:")
-    print(f"config/2fa/{access_key}.json")
+    print(f"config/2fa/{access_secret}.json")
     print("\nMake sure to keep these files secure!")
 
 def main():
     interval_default = 30
     parser = argparse.ArgumentParser(description="Setup 2FA for KnockPort access key")
-    parser.add_argument('-k', '--http_access_key', type=str, required=True, help='HTTP access key to associate with 2FA')
+    parser.add_argument('-k', '--http_access_secret', type=str, required=True, help='HTTP access key to associate with 2FA')
     parser.add_argument('-i', '--interval', type=int, default=30, help=f"2FA token refresh interval (default:{interval_default}s)")
     args = parser.parse_args()
 
@@ -71,7 +71,7 @@ def main():
         print("A non-standard interval might not be supported by all Authenticator apps.")
         input("Press any key to continue ...")
 
-    generate_2fa_config(args.http_access_key, args.interval)
+    generate_2fa_config(args.http_access_secret, args.interval)
 
 if __name__ == "__main__":
     main()

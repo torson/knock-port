@@ -24,7 +24,7 @@ TTL=10
 
 echo
 log "Sending HTTP request"
-if curl -s -m 1 -i -d 'app=healthcheck&access_key=1234567890' http://${KNOCKPORT_HOST}:${KNOCKPORT_HTTP_PORT}${KNOCKPORT_HTTP_URL_PATH} | grep "200 OK" >/dev/null ; then
+if curl -s -m 1 -i -d 'app=healthcheck&access_secret=1234567890' http://${KNOCKPORT_HOST}:${KNOCKPORT_HTTP_PORT}${KNOCKPORT_HTTP_URL_PATH} | grep "200 OK" >/dev/null ; then
     log "OK. KnockPort responded with 200"
 else
     log "Error. KnockPort did not responded with 200, restarting KnockPort"

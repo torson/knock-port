@@ -10,10 +10,10 @@ global:
 
 test_service_local:
   port: 1194
-  access_key_http:
+  access_secret_http:
     - test_secret_http
     - test_secret2_http
-  access_key_https:
+  access_secret_https:
     - test_secret_https
     - test_secret2_https
   destination: local
@@ -23,10 +23,10 @@ test_service_local:
 
 test_service_local2:
   port: 1195
-  access_key_http:
+  access_secret_http:
     - test_secret_http
     - test_secret2_http
-  access_key_https:
+  access_secret_https:
     - test_secret_https
     - test_secret2_https
   destination: local
@@ -36,10 +36,10 @@ test_service_local2:
 
 test_service_nonlocal:
   port: 1294
-  access_key_http:
+  access_secret_http:
     - test_secret_http
     - test_secret2_http
-  access_key_https:
+  access_secret_https:
     - test_secret_https
     - test_secret2_https
   destination: $BACKEND_IP:2294
@@ -49,10 +49,10 @@ test_service_nonlocal:
 
 test_service_nonlocal2:
   port: 1295
-  access_key_http:
+  access_secret_http:
     - test_secret_http
     - test_secret2_http
-  access_key_https:
+  access_secret_https:
     - test_secret_https
     - test_secret2_https
   destination: $BACKEND_IP:2295

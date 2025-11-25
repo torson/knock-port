@@ -24,10 +24,10 @@ global:
 
 openvpn:
   port: 1194
-  access_key_http:
+  access_secret_http:
     - test_secret_http
     - test_secret2_http
-  access_key_https:
+  access_secret_https:
     - test_secret_https
     - test_secret2_https
   destination: local
@@ -53,8 +53,8 @@ python src/main.py -c config/config.yaml --firewall-type nftables --http-port 80
 
 # Sample curl commands to authenticate and test the server with the sample configuration
 # > they should be run one after the other within the step2_https_duration window (set in config.yaml)
-curl -d 'app=app1&access_key=secret123_http' -m 1 http://knockport.example.com/{SECRET_1}
-curl -d 'app=app1&access_key=secret456_https' -m 1 -k https://knockport.example.com/{SECRET_2}
+curl -d 'app=app1&access_secret=secret123_http' -m 1 http://knockport.example.com/{SECRET_1}
+curl -d 'app=app1&access_secret=secret456_https' -m 1 -k https://knockport.example.com/{SECRET_2}
 
 # at this point the service port should be open for your IP
 ```
@@ -161,25 +161,25 @@ Step-1 is to hide the setup from public, and step-2 is to secure the setup to so
 
 You can enable 2FA to prevent abuse in case your machine gets compromised. Might be better to use an authenticator app on your phone instead of one on the machine itself (like 1Password that also supports 2FA tokens).
 
-To set up 2FA run this command and pass it any access_key_http value that's configured in `config.yaml` for which you want to enable 2FA, and follow instructions:
+To set up 2FA run this command and pass it any access_secret_http value that's configured in `config.yaml` for which you want to enable 2FA, and follow instructions:
 ```
 python src/setup_2fa.py -h
-python src/setup_2fa.py -k {access_key_http}
+python src/setup_2fa.py -k {access_secret_http}
 ```
 
-Two files were created inside folder `config/2fa/` : `<access_key>_qr.png` and `<access_key>.json` .
+Two files were created inside folder `config/2fa/` : `<access_secret>_qr.png` and `<access_secret>.json` .
 
-From this point onward you need to provide additional header `token` in the curl command when authenticating with this specific access_key :
+From this point onward you need to provide additional header `token` in the curl command when authenticating with this specific access_secret :
 ```
 #!/bin/bash
 read -p "2FA token: " TOKEN
-curl -d "app=app1&access_key=secret123_http&token=${TOKEN}" -m 1 http://knockport.example.com/1-{SECRET}
-curl -d "app=app1&access_key=secret456_https" -k https://knockport.example.com/2-{SECRET}
+curl -d "app=app1&access_secret=secret123_http&token=${TOKEN}" -m 1 http://knockport.example.com/1-{SECRET}
+curl -d "app=app1&access_secret=secret456_https" -k https://knockport.example.com/2-{SECRET}
 ```
 
 A valid token can be used only once to prevent a replay attack - an attacker sniffing the network to repeat the same request from another IP, so in case you fail to send the 2nd step HTTPS request within the configured `step2_https_duration` value (if it's set to a low value), then you need to wait for the next 2FA token to be generated and pass that new token. That could generally happen only while testing as normally both requests are done by a script one after the other.
 
-To disable 2FA for a particular access_key , just rename/move/delete file `config/2fa/<access_key>.json` .
+To disable 2FA for a particular access_secret , just rename/move/delete file `config/2fa/<access_secret>.json` .
 
 In addition of securing the services ports, enabling 2FA also shields KnockPort from attacks on HTTPS port because the token is passed with the 1st step HTTP request (there's nothing wrong with sending tokens via HTTP as the 2FA key can't get reverse-engineered with sampling of tokens), so the 2nd step HTTPS port doesn't even get open for attacks.
 

@@ -13,10 +13,10 @@ global:
 
 openvpn:
   port: 1194
-  access_key_http:
+  access_secret_http:
     - secret123_http
     - secret456_http
-  access_key_https:
+  access_secret_https:
     - secret123_https
     - secret456_https
   # destination: Can be "local" or "IP" or "IP:PORT" - "local" uses the local server, "IP:PORT" forwards requests to the specified IP address and port
@@ -29,9 +29,9 @@ openvpn:
 
 http:
   port: 80   # WARNING: if you set here the same port as KnockPort http port, then the requests will start going to the backend server and not KnockPort and you'll loose access to KnockPort . Same goes for HTTPS port
-  access_key_http:
+  access_secret_http:
     - secret_http
-  access_key_https:
+  access_secret_https:
     - secret_https
   # destination: Can be "local" or "IP" or "IP:PORT" - "local" uses the local server, "IP:PORT" forwards requests to the specified IP address and port
   destination: 192.168.0.40:80
@@ -41,9 +41,9 @@ http:
 
 ssh:
   port: 2222   # WARNING: don't set 22 here since you're most probably running sshd on port 22 on this server host
-  access_key_http:
+  access_secret_http:
     - secret_http
-  access_key_https:
+  access_secret_https:
     - secret_https
   # destination: Can be "local" or "IP" or "IP:PORT" - "local" uses the local server, "IP:PORT" forwards requests to the specified IP address and port
   destination: 192.168.0.42:22
@@ -53,8 +53,8 @@ ssh:
 
 # mysql:
 #   port: 3306
-#   access_key_http: secret789_http
-#   access_key_https: secret012_https
+#   access_secret_http: secret789_http
+#   access_secret_https: secret012_https
 #   destination: 192.168.0.30:4306  # 'local' or IP[:PORT] (uses port field value if :port omited)
 #   protocol: udp
 #   duration: 3600  # Duration in seconds
